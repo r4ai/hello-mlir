@@ -1,0 +1,33 @@
+[tools]
+"cargo:cargo-insta" = "1.42.2"
+deno = "2.3.6"
+lefthook = "latest"
+mold = "2.37.1"
+rust = "1.87.0"
+
+[hooks]
+postinstall = """\
+  lefthook install && \
+  ln -sf $(command -v mold) $(dirname $(command -v mold))/ld.mold\
+  """
+
+[tasks.format]
+run = "cargo fmt --all -- --check"
+
+[tasks.format-write]
+run = "cargo fmt --all"
+
+[tasks.lint]
+run = "cargo clippy -- -D warnings"
+
+[tasks.lint-write]
+run = "cargo clippy --fix --allow-dirty --allow-staged"
+
+[tasks.build]
+run = "cargo build"
+
+[tasks.test]
+run = "cargo insta test"
+
+[tasks.test-review]
+run = "cargo insta review"

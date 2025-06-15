@@ -1,0 +1,9 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - Assign:
+      name: x
+      value:
+        IntLit: 42

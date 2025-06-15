@@ -1,0 +1,9 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - LetDecl:
+      name: x
+      type: I32
+      value: ~

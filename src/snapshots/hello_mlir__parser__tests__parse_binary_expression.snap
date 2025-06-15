@@ -1,0 +1,13 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - Expr:
+      expr:
+        BinOp:
+          lhs:
+            IntLit: 42
+          op: Add
+          rhs:
+            IntLit: 10

@@ -1,0 +1,26 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - FnDecl:
+      name: compute
+      params: []
+      type: I32
+      body:
+        - ExprStmt:
+            expr:
+              BinOp:
+                lhs:
+                  IntLit: 10
+                op: Add
+                rhs:
+                  IntLit: 20
+        - Expr:
+            expr:
+              BinOp:
+                lhs:
+                  IntLit: 30
+                op: Add
+                rhs:
+                  IntLit: 40

@@ -1,0 +1,24 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - If:
+      condition:
+        IntLit: 1
+      then_branch:
+        - If:
+            condition:
+              IntLit: 2
+            then_branch:
+              - Expr:
+                  expr:
+                    IntLit: 3
+            else_branch:
+              - Expr:
+                  expr:
+                    IntLit: 4
+      else_branch:
+        - Expr:
+            expr:
+              IntLit: 5

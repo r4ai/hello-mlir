@@ -1,0 +1,19 @@
+[package]
+name = "hello-mlir"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+ariadne = "0.5.1"
+chumsky = "0.10.1"
+clap = { version = "4.5.40", features = ["derive"] }
+logos = "0.15.0"
+melior = "0.25.0"
+serde = { version = "1.0.219", features = ["derive"] }
+
+[dev-dependencies]
+indoc = "2.0.6"
+insta = { version = "1.43.1", features = ["yaml"] }
+pretty_assertions = "1.4.1"
+tempfile = "3.20.0"

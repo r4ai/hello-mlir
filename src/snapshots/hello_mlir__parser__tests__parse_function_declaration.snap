@@ -1,0 +1,13 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - FnDecl:
+      name: zero
+      params: []
+      type: I32
+      body:
+        - Expr:
+            expr:
+              IntLit: 0

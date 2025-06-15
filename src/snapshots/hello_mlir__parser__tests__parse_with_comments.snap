@@ -1,0 +1,30 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - FnDecl:
+      name: run
+      params: []
+      type: I32
+      body:
+        - LetDecl:
+            name: a
+            type: I32
+            value:
+              IntLit: 10
+        - LetDecl:
+            name: b
+            type: I32
+            value:
+              IntLit: 20
+        - Expr:
+            expr:
+              BinOp:
+                lhs:
+                  VarRef:
+                    name: a
+                op: Add
+                rhs:
+                  VarRef:
+                    name: b

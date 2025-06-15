@@ -1,0 +1,10 @@
+---
+source: src/parser.rs
+expression: program
+---
+stmts:
+  - VarDecl:
+      name: x
+      type: I32
+      value:
+        IntLit: 42

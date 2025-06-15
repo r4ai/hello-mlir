@@ -1,0 +1,5 @@
+---
+source: src/parser.rs
+expression: "format!(\"{:?}\", errors)"
+---
+"[found end of input at 16..16 expected 'Mul', 'Div', 'Add', 'Sub', 'Equal', 'NotEqual', 'LessThan', 'LessThanOrEqual', 'GreaterThan', 'GreaterThanOrEqual', 'And', 'Or', or 'RParen']"
