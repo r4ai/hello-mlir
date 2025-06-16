@@ -11,14 +11,38 @@ where
         Token::Identifier(value) => value
     };
 
-    let r#type = select! {
-        Token::Identifier(value) if value == "i32" => ast::Type::I32,
-        Token::Identifier(value) if value == "i64" => ast::Type::I64,
-        Token::Identifier(value) if value == "f32" => ast::Type::F32,
-        Token::Identifier(value) if value == "f64" => ast::Type::F64,
-        Token::Identifier(value) if value == "void" => ast::Type::Void,
-        Token::Identifier(value) if value == "string" => ast::Type::String,
-    };
+    let r#type = recursive(|r#type| {
+        choice((
+            select! {
+                Token::Identifier(value) if value == "bool" => ast::Type::Bool,
+                Token::Identifier(value) if value == "i32" => ast::Type::I32,
+                Token::Identifier(value) if value == "i64" => ast::Type::I64,
+                Token::Identifier(value) if value == "f32" => ast::Type::F32,
+                Token::Identifier(value) if value == "f64" => ast::Type::F64,
+                Token::Identifier(value) if value == "void" => ast::Type::Void,
+                Token::Identifier(value) if value == "string" => ast::Type::String,
+            },
+            // "(" [ { identifier ":" type "," } identifier ":" type ] ")" "->" type
+            identifier
+                .then_ignore(just(Token::Colon))
+                .then(r#type.clone())
+                .map_with(|(name, ty), e| ast::FnParam {
+                    name,
+                    r#type: ty,
+                    span: ast::Span::from(e.span()),
+                })
+                .separated_by(just(Token::Comma))
+                .collect::<Vec<_>>()
+                .delimited_by(just(Token::LParen), just(Token::RParen))
+                .then_ignore(just(Token::RightArrow))
+                .then(r#type)
+                .map(|(params, return_type)| ast::Type::Fn {
+                    return_type: Box::new(return_type),
+                    params,
+                }),
+        ))
+    })
+    .boxed();
 
     // The operator precedence and associativity are designed to match C++ according to:
     // https://www.ibm.com/docs/en/i/7.3.0?topic=operators-operator-precedence-associativity
@@ -198,7 +222,8 @@ where
         );
 
         logical_or
-    });
+    })
+    .boxed();
 
     let statements = recursive(|statements| {
         // expr ";"
@@ -213,7 +238,7 @@ where
         // "let" identifier [":" type] ["=" expr] ";"
         let let_declaration = just(Token::LetDeclaration)
             .ignore_then(identifier)
-            .then(just(Token::Colon).ignore_then(r#type).or_not())
+            .then(just(Token::Colon).ignore_then(r#type.clone()).or_not())
             .then(just(Token::Assign).ignore_then(expr.clone()).or_not())
             .then_ignore(just(Token::Semicolon))
             .map_with(|((name, ty), value), e| ast::Stmt::LetDecl {
@@ -226,7 +251,7 @@ where
         // "var" identifier [":" type] ["=" expr] ";"
         let var_declaration = just(Token::VarDeclaration)
             .ignore_then(identifier)
-            .then(just(Token::Colon).ignore_then(r#type).or_not())
+            .then(just(Token::Colon).ignore_then(r#type.clone()).or_not())
             .then(just(Token::Assign).ignore_then(expr.clone()).or_not())
             .then_ignore(just(Token::Semicolon))
             .map_with(|((name, ty), value), e| ast::Stmt::VarDecl {
@@ -259,7 +284,7 @@ where
         // identifier ":" type
         let function_parameter = identifier
             .then_ignore(just(Token::Colon))
-            .then(r#type)
+            .then(r#type.clone())
             .map_with(|(name, ty), e| ast::FnParam {
                 name,
                 r#type: Some(ty),
@@ -285,7 +310,7 @@ where
             .ignore_then(identifier)
             .then(function_parameters)
             .then_ignore(just(Token::RightArrow))
-            .then(r#type)
+            .then(r#type.clone())
             .then(block.clone())
             .map_with(
                 |(((name, params), return_type), body), e| ast::Stmt::FnDecl {
@@ -362,7 +387,8 @@ where
                 }
                 body
             })
-    });
+    })
+    .boxed();
 
     statements
         .then_ignore(end())
