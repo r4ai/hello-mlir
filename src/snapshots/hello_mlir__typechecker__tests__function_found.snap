@@ -1,0 +1,5 @@
+---
+source: src/typechecker.rs
+expression: result
+---
+Ok: ~

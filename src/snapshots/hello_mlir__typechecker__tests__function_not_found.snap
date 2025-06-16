@@ -1,0 +1,13 @@
+---
+source: src/typechecker.rs
+expression: result
+---
+Err:
+  kind:
+    FunctionNotFound:
+      name: one
+  file_id: "<test>"
+  span:
+    start: 36
+    end: 41
+    context: ~

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::ast::{self, Span};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum TypeErrorKind<'a> {
     MismatchedTypes {
         left: ast::Type<'a>,
@@ -42,7 +42,7 @@ pub enum TypeErrorKind<'a> {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct TypeError<'a> {
     pub kind: TypeErrorKind<'a>,
     #[allow(dead_code)]
@@ -261,7 +261,7 @@ impl<'a> TypeChecker<'a> {
                         )?;
                         match lhs_type {
                             ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => {
-                                Ok(ast::Type::F64)
+                                Ok(lhs_type)
                             }
                             _ => Err(TypeError {
                                 kind: TypeErrorKind::InvalidOperation {
@@ -613,4 +613,209 @@ pub fn typecheck<'a>(program: &ast::Program<'a>, file_id: &'a str) -> Result<(),
     let mut type_checker = TypeChecker::new(file_id);
     type_checker.typecheck_program(program)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use indoc::indoc;
+    use insta::assert_yaml_snapshot;
+
+    use crate::{
+        parser,
+        typechecker::{self, TypeError},
+    };
+
+    fn has_no_errors<T, E>(result: &chumsky::prelude::ParseResult<T, E>) -> bool {
+        result.errors().len() == 0
+    }
+
+    fn typecheck(source: &str) -> Result<(), TypeError> {
+        let parse_result = parser::parse(source);
+        assert!(has_no_errors(&parse_result));
+
+        let program = parse_result.into_result().unwrap();
+
+        typechecker::typecheck(&program, "<test>")
+    }
+
+    #[test]
+    fn test_function_found() {
+        let source = indoc! {"
+            fn zero() -> i32 {
+                return 0;
+            }
+
+            zero()
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_function_not_found() {
+        let source = indoc! {"
+            fn zero() -> i32 {
+                return 0;
+            }
+
+            one()
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_variable_found() {
+        let source = indoc! {"
+            let x: i32 = 42;
+            x
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_variable_not_found() {
+        let source = indoc! {"
+            let x: i32 = 42;
+            y
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_function_declaration() {
+        let source = indoc! {"
+            fn add() -> i32 {
+                let x: i32 = 42;
+                let y: i32 = 43;
+                x + y
+            }
+
+            let x: i32 = 42;
+            let y: i32 = 43;
+
+            if true {
+                let x: i32 = 44;
+            } else {
+                let y: i32 = 45;
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_duplicate_variable_declaration() {
+        let source = indoc! {"
+            let x: i32 = 42;
+            let x: i32 = 43;
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_duplicate_function_declaration() {
+        let source = indoc! {"
+            fn add() -> i32 {
+                return 0;
+            }
+
+            fn add() -> i32 {
+                return 1;
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_mismatched_types() {
+        let source = indoc! {"
+            let x: i32 = true;
+            0
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_matched_types() {
+        let source = indoc! {"
+            let x: i32 = 42;
+            let y: i32 = 43;
+            x + y
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_invalid_operation() {
+        let source = indoc! {"
+            1 + true
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_valid_operation() {
+        let source = indoc! {"
+            1 + 2
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_invalid_function_call() {
+        let source = indoc! {"
+            fn add(x: i32, y: i32) -> i32 {
+                x + y
+            }
+
+            add(1, true)
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err());
+        assert_yaml_snapshot!(result);
+    }
+
+    #[test]
+    fn test_valid_function_call() {
+        let source = indoc! {"
+            fn add(x: i32, y: i32) -> i32 {
+                x + y
+            }
+
+            add(1, 2)
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_annotation_found() {
+        let source = indoc! {"
+            fn add(x: i32, y: i32) -> i32 {
+                x + y
+            }
+            0
+        "};
+        let result = typecheck(source);
+        assert!(
+            result.is_ok(),
+            "Type checking should succeed, but got error: {:?}",
+            result
+        );
+    }
 }

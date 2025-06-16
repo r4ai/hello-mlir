@@ -1,0 +1,14 @@
+---
+source: src/typechecker.rs
+expression: result
+---
+Err:
+  kind:
+    MismatchedTypes:
+      left: Bool
+      right: I32
+  file_id: "<test>"
+  span:
+    start: 15
+    end: 21
+    context: ~

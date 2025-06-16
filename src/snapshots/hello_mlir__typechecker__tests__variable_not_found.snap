@@ -1,0 +1,13 @@
+---
+source: src/typechecker.rs
+expression: result
+---
+Err:
+  kind:
+    VariableNotFound:
+      name: y
+  file_id: "<test>"
+  span:
+    start: 17
+    end: 18
+    context: ~

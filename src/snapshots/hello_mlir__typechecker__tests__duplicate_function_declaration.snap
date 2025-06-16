@@ -1,0 +1,13 @@
+---
+source: src/typechecker.rs
+expression: result
+---
+Err:
+  kind:
+    DuplicateFunctionDeclaration:
+      name: add
+  file_id: "<test>"
+  span:
+    start: 35
+    end: 68
+    context: ~
