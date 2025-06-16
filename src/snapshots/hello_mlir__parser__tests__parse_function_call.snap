@@ -10,9 +10,30 @@ stmts:
       body:
         - Expr:
             expr:
-              IntLit: 0
+              IntLit:
+                value: 0
+                span:
+                  start: 19
+                  end: 20
+                  context: ~
+            span:
+              start: 19
+              end: 20
+              context: ~
+      span:
+        start: 0
+        end: 22
+        context: ~
   - Expr:
       expr:
         FnCall:
           name: zero
           args: []
+          span:
+            start: 23
+            end: 29
+            context: ~
+      span:
+        start: 23
+        end: 29
+        context: ~

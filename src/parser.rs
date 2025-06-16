@@ -24,13 +24,25 @@ where
     // https://www.ibm.com/docs/en/i/7.3.0?topic=operators-operator-precedence-associativity
     let expr = recursive(|expr| {
         let literal = select! {
-            Token::Integer(value) => ast::Expr::IntLit(value.parse().unwrap()),
-            Token::Identifier(ident) if ident == "true" => ast::Expr::BoolLit(true),
-            Token::Identifier(ident) if ident == "false" => ast::Expr::BoolLit(false),
+            Token::Integer(value) = e => ast::Expr::IntLit {
+                value: value.parse().unwrap(),
+                span: ast::Span::from(e.span())
+            },
+            Token::Identifier(ident) = e if ident == "true" => ast::Expr::BoolLit {
+                value: true,
+                span: ast::Span::from(e.span())
+            },
+            Token::Identifier(ident) = e if ident == "false" => ast::Expr::BoolLit {
+                value: false,
+                span: ast::Span::from(e.span())
+            },
         };
 
         // variable reference (identifier as expression)
-        let var_ref = identifier.map(|name| ast::Expr::VarRef { name });
+        let var_ref = identifier.map_with(|name, e| ast::Expr::VarRef {
+            name,
+            span: ast::Span::from(e.span()),
+        });
 
         // "(" [ { expr "," } expr ] ")"
         let call_args = expr
@@ -40,9 +52,14 @@ where
             .delimited_by(just(Token::LParen), just(Token::RParen));
 
         // function call: identifier '(' [args] ')' (only in expression context)
-        let function_call = identifier
-            .then(call_args)
-            .map(|(name, args)| ast::Expr::FnCall { name, args });
+        let function_call =
+            identifier
+                .then(call_args)
+                .map_with(|(name, args), e| ast::Expr::FnCall {
+                    name,
+                    args,
+                    span: ast::Span::from(e.span()),
+                });
 
         let primary = choice((
             // function call
@@ -60,56 +77,60 @@ where
             // "-" primary
             just(Token::Sub)
                 .ignore_then(primary.clone())
-                .map(|expr| ast::Expr::UnaryOp {
+                .map_with(|expr, e| ast::Expr::UnaryOp {
                     op: ast::UnaryOp::Neg,
                     expr: Box::new(expr),
+                    span: ast::Span::from(e.span()),
                 }),
             // "!" primary
             just(Token::Not)
                 .ignore_then(primary.clone())
-                .map(|expr| ast::Expr::UnaryOp {
+                .map_with(|expr, e| ast::Expr::UnaryOp {
                     op: ast::UnaryOp::Not,
                     expr: Box::new(expr),
+                    span: ast::Span::from(e.span()),
                 }),
             // primary
             primary,
         ));
 
         // unary { ("*" | "/") unary }
-        let multiplication = unary.clone().foldl(
+        let multiplication = unary.clone().foldl_with(
             choice((
                 just(Token::Mul).to(ast::BinOp::Mul),
                 just(Token::Div).to(ast::BinOp::Div),
             ))
             .then(unary)
             .repeated(),
-            |lhs, (op, rhs)| ast::Expr::BinOp {
+            |lhs, (op, rhs), e| ast::Expr::BinOp {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
+                span: ast::Span::from(e.span()),
             },
         );
 
         // multiplication { ("+" | "-") multiplication }
         let addition = multiplication
             .clone()
-            .foldl(
+            .foldl_with(
                 choice((
                     just(Token::Add).to(ast::BinOp::Add),
                     just(Token::Sub).to(ast::BinOp::Sub),
                 ))
                 .then(multiplication)
                 .repeated(),
-                |lhs, (op, rhs)| ast::Expr::BinOp {
+                |lhs, (op, rhs), e| ast::Expr::BinOp {
                     lhs: Box::new(lhs),
                     op,
                     rhs: Box::new(rhs),
+                    span: ast::Span::from(e.span()),
                 },
             )
             .boxed();
 
         // addition { ("<" | "<=" | ">" | ">=") addition }
-        let comparison = addition.clone().foldl(
+        let comparison = addition.clone().foldl_with(
             choice((
                 just(Token::Equal).to(ast::BinOp::Equal),
                 just(Token::NotEqual).to(ast::BinOp::NotEqual),
@@ -120,55 +141,59 @@ where
             ))
             .then(addition)
             .repeated(),
-            |lhs, (op, rhs)| ast::Expr::BinOp {
+            |lhs, (op, rhs), e| ast::Expr::BinOp {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
+                span: ast::Span::from(e.span()),
             },
         );
 
         // comparison { ("==" | "!=") comparison }
         let equality = comparison
             .clone()
-            .foldl(
+            .foldl_with(
                 choice((
                     just(Token::Equal).to(ast::BinOp::Equal),
                     just(Token::NotEqual).to(ast::BinOp::NotEqual),
                 ))
                 .then(comparison)
                 .repeated(),
-                |lhs, (op, rhs)| ast::Expr::BinOp {
+                |lhs, (op, rhs), e| ast::Expr::BinOp {
                     lhs: Box::new(lhs),
                     op,
                     rhs: Box::new(rhs),
+                    span: ast::Span::from(e.span()),
                 },
             )
             .boxed();
 
         // equality { "&&" equality }
-        let logical_and = equality.clone().foldl(
+        let logical_and = equality.clone().foldl_with(
             just(Token::And)
                 .to(ast::BinOp::And)
                 .then(equality)
                 .repeated(),
-            |lhs, (op, rhs)| ast::Expr::BinOp {
+            |lhs, (op, rhs), e| ast::Expr::BinOp {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
+                span: ast::Span::from(e.span()),
             },
         );
 
         // logical_and { "||" logical_and }
         #[allow(clippy::let_and_return)]
-        let logical_or = logical_and.clone().foldl(
+        let logical_or = logical_and.clone().foldl_with(
             just(Token::Or)
                 .to(ast::BinOp::Or)
                 .then(logical_and)
                 .repeated(),
-            |lhs, (op, rhs)| ast::Expr::BinOp {
+            |lhs, (op, rhs), e| ast::Expr::BinOp {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
+                span: ast::Span::from(e.span()),
             },
         );
 
@@ -177,12 +202,13 @@ where
 
     let statements = recursive(|statements| {
         // expr ";"
-        let expr_statement = expr
-            .clone()
-            .then_ignore(just(Token::Semicolon))
-            .map(|expr| ast::Stmt::ExprStmt {
-                expr: Box::new(expr),
-            });
+        let expr_statement =
+            expr.clone()
+                .then_ignore(just(Token::Semicolon))
+                .map_with(|expr, e| ast::Stmt::ExprStmt {
+                    expr: Box::new(expr),
+                    span: ast::Span::from(e.span()),
+                });
 
         // "let" identifier [":" type] ["=" expr] ";"
         let let_declaration = just(Token::LetDeclaration)
@@ -190,10 +216,11 @@ where
             .then(just(Token::Colon).ignore_then(r#type).or_not())
             .then(just(Token::Assign).ignore_then(expr.clone()).or_not())
             .then_ignore(just(Token::Semicolon))
-            .map(|((name, ty), value)| ast::Stmt::LetDecl {
+            .map_with(|((name, ty), value), e| ast::Stmt::LetDecl {
                 name,
                 r#type: ty,
                 value,
+                span: ast::Span::from(e.span()),
             });
 
         // "var" identifier [":" type] ["=" expr] ";"
@@ -202,10 +229,11 @@ where
             .then(just(Token::Colon).ignore_then(r#type).or_not())
             .then(just(Token::Assign).ignore_then(expr.clone()).or_not())
             .then_ignore(just(Token::Semicolon))
-            .map(|((name, ty), value)| ast::Stmt::VarDecl {
+            .map_with(|((name, ty), value), e| ast::Stmt::VarDecl {
                 name,
                 r#type: ty,
                 value,
+                span: ast::Span::from(e.span()),
             });
 
         // identifier "=" expr ";"
@@ -213,28 +241,30 @@ where
             .then_ignore(just(Token::Assign))
             .then(expr.clone())
             .then_ignore(just(Token::Semicolon))
-            .map(|(name, value)| ast::Stmt::Assign {
+            .map_with(|(name, value), e| ast::Stmt::Assign {
                 name,
                 value: Box::new(value),
+                span: ast::Span::from(e.span()),
             });
 
         // "return" [ expr ] ";"
         let return_statement = just(Token::Return)
             .ignore_then(expr.clone().or_not())
             .then_ignore(just(Token::Semicolon))
-            .map(|expr| ast::Stmt::Return {
+            .map_with(|expr, e| ast::Stmt::Return {
                 expr: expr.map(Box::new),
+                span: ast::Span::from(e.span()),
             });
 
         // identifier ":" type
-        let function_parameter =
-            identifier
-                .then_ignore(just(Token::Colon))
-                .then(r#type)
-                .map(|(name, ty)| ast::FnParam {
-                    name,
-                    r#type: Some(ty),
-                });
+        let function_parameter = identifier
+            .then_ignore(just(Token::Colon))
+            .then(r#type)
+            .map_with(|(name, ty), e| ast::FnParam {
+                name,
+                r#type: Some(ty),
+                span: ast::Span::from(e.span()),
+            });
 
         // "(" { function_parameter "," } function_parameter ")"
         let function_parameters = just(Token::LParen)
@@ -257,12 +287,15 @@ where
             .then_ignore(just(Token::RightArrow))
             .then(r#type)
             .then(block.clone())
-            .map(|(((name, params), return_type), body)| ast::Stmt::FnDecl {
-                name,
-                params,
-                r#type: Some(return_type),
-                body,
-            });
+            .map_with(
+                |(((name, params), return_type), body), e| ast::Stmt::FnDecl {
+                    name,
+                    params,
+                    r#type: Some(return_type),
+                    body,
+                    span: ast::Span::from(e.span()),
+                },
+            );
 
         // "if" expr block [ "else" (if_stmt | block) ]
         let if_statement = recursive(|if_stmt| {
@@ -274,15 +307,17 @@ where
                         .ignore_then(
                             if_stmt
                                 .clone()
-                                .map(|stmt| match stmt {
+                                .map_with(|stmt, e| match stmt {
                                     ast::Stmt::If {
                                         condition,
                                         then_branch,
                                         else_branch,
+                                        ..
                                     } => vec![ast::Stmt::If {
                                         condition,
                                         then_branch,
                                         else_branch,
+                                        span: ast::Span::from(e.span()),
                                     }],
                                     _ => unreachable!(), // This will always be an If statement
                                 })
@@ -290,10 +325,11 @@ where
                         )
                         .or_not(),
                 )
-                .map(|((condition, then_branch), else_branch)| ast::Stmt::If {
+                .map_with(|((condition, then_branch), else_branch), e| ast::Stmt::If {
                     condition: Box::new(condition),
                     then_branch,
                     else_branch,
+                    span: ast::Span::from(e.span()),
                 })
         });
 
@@ -311,8 +347,12 @@ where
             .repeated()
             .collect::<Vec<_>>()
             .then(expr.clone().or_not().map(|expr| {
-                expr.map(|expr| ast::Stmt::Expr {
-                    expr: Box::new(expr),
+                expr.map(|expr| {
+                    let span = expr.span().clone();
+                    ast::Stmt::Expr {
+                        expr: Box::new(expr),
+                        span,
+                    }
                 })
             }))
             .map(|(statements, expr)| {

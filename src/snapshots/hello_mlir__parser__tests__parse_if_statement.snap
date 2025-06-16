@@ -5,9 +5,27 @@ expression: program
 stmts:
   - If:
       condition:
-        IntLit: 1
+        IntLit:
+          value: 1
+          span:
+            start: 3
+            end: 4
+            context: ~
       then_branch:
         - Expr:
             expr:
-              IntLit: 1
+              IntLit:
+                value: 1
+                span:
+                  start: 7
+                  end: 8
+                  context: ~
+            span:
+              start: 7
+              end: 8
+              context: ~
       else_branch: ~
+      span:
+        start: 0
+        end: 10
+        context: ~

@@ -9,15 +9,51 @@ stmts:
           lhs:
             BinOp:
               lhs:
-                IntLit: 42
+                IntLit:
+                  value: 42
+                  span:
+                    start: 0
+                    end: 2
+                    context: ~
               op: Add
               rhs:
                 BinOp:
                   lhs:
-                    IntLit: 10
+                    IntLit:
+                      value: 10
+                      span:
+                        start: 6
+                        end: 8
+                        context: ~
                   op: Mul
                   rhs:
-                    IntLit: 5
+                    IntLit:
+                      value: 5
+                      span:
+                        start: 11
+                        end: 12
+                        context: ~
+                  span:
+                    start: 6
+                    end: 12
+                    context: ~
+              span:
+                start: 0
+                end: 13
+                context: ~
           op: Sub
           rhs:
-            IntLit: 8
+            IntLit:
+              value: 8
+              span:
+                start: 16
+                end: 17
+                context: ~
+          span:
+            start: 0
+            end: 17
+            context: ~
+      span:
+        start: 0
+        end: 17
+        context: ~

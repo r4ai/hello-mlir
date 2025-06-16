@@ -12,15 +12,55 @@ stmts:
             expr:
               BinOp:
                 lhs:
-                  IntLit: 10
+                  IntLit:
+                    value: 10
+                    span:
+                      start: 22
+                      end: 24
+                      context: ~
                 op: Add
                 rhs:
-                  IntLit: 20
+                  IntLit:
+                    value: 20
+                    span:
+                      start: 27
+                      end: 29
+                      context: ~
+                span:
+                  start: 22
+                  end: 29
+                  context: ~
+            span:
+              start: 22
+              end: 30
+              context: ~
         - Expr:
             expr:
               BinOp:
                 lhs:
-                  IntLit: 30
+                  IntLit:
+                    value: 30
+                    span:
+                      start: 31
+                      end: 33
+                      context: ~
                 op: Add
                 rhs:
-                  IntLit: 40
+                  IntLit:
+                    value: 40
+                    span:
+                      start: 36
+                      end: 38
+                      context: ~
+                span:
+                  start: 31
+                  end: 38
+                  context: ~
+            span:
+              start: 31
+              end: 38
+              context: ~
+      span:
+        start: 0
+        end: 40
+        context: ~

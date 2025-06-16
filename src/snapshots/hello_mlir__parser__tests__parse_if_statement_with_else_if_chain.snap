@@ -5,28 +5,91 @@ expression: program
 stmts:
   - If:
       condition:
-        IntLit: 1
+        IntLit:
+          value: 1
+          span:
+            start: 3
+            end: 4
+            context: ~
       then_branch:
         - Expr:
             expr:
-              IntLit: 1
+              IntLit:
+                value: 1
+                span:
+                  start: 11
+                  end: 12
+                  context: ~
+            span:
+              start: 11
+              end: 12
+              context: ~
       else_branch:
         - If:
             condition:
-              IntLit: 2
+              IntLit:
+                value: 2
+                span:
+                  start: 23
+                  end: 24
+                  context: ~
             then_branch:
               - Expr:
                   expr:
-                    IntLit: 2
+                    IntLit:
+                      value: 2
+                      span:
+                        start: 31
+                        end: 32
+                        context: ~
+                  span:
+                    start: 31
+                    end: 32
+                    context: ~
             else_branch:
               - If:
                   condition:
-                    IntLit: 3
+                    IntLit:
+                      value: 3
+                      span:
+                        start: 43
+                        end: 44
+                        context: ~
                   then_branch:
                     - Expr:
                         expr:
-                          IntLit: 3
+                          IntLit:
+                            value: 3
+                            span:
+                              start: 51
+                              end: 52
+                              context: ~
+                        span:
+                          start: 51
+                          end: 52
+                          context: ~
                   else_branch:
                     - Expr:
                         expr:
-                          IntLit: 4
+                          IntLit:
+                            value: 4
+                            span:
+                              start: 66
+                              end: 67
+                              context: ~
+                        span:
+                          start: 66
+                          end: 67
+                          context: ~
+                  span:
+                    start: 40
+                    end: 69
+                    context: ~
+            span:
+              start: 20
+              end: 69
+              context: ~
+      span:
+        start: 0
+        end: 69
+        context: ~

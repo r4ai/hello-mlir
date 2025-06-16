@@ -7,7 +7,25 @@ stmts:
       expr:
         BinOp:
           lhs:
-            IntLit: 42
+            IntLit:
+              value: 42
+              span:
+                start: 0
+                end: 2
+                context: ~
           op: Add
           rhs:
-            IntLit: 10
+            IntLit:
+              value: 10
+              span:
+                start: 5
+                end: 7
+                context: ~
+          span:
+            start: 0
+            end: 7
+            context: ~
+      span:
+        start: 0
+        end: 7
+        context: ~

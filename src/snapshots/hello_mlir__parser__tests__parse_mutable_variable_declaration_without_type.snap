@@ -7,4 +7,13 @@ stmts:
       name: x
       type: ~
       value:
-        IntLit: 42
+        IntLit:
+          value: 42
+          span:
+            start: 8
+            end: 10
+            context: ~
+      span:
+        start: 0
+        end: 11
+        context: ~

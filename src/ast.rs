@@ -1,12 +1,32 @@
 use serde::Serialize;
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Span<T = usize, C = ()> {
+    /// The start position of the span in the source code
+    pub start: T,
+    /// The end position of the span in the source code
+    pub end: T,
+    /// Additional context for the span, if any
+    pub context: C,
+}
+
 /// Expression
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Expr<'a> {
     /// An integer literal
-    IntLit(i64),
+    IntLit {
+        /// The integer value
+        value: i64,
+        /// The span of the literal in the source code
+        span: Span,
+    },
     /// A boolean literal
-    BoolLit(bool),
+    BoolLit {
+        /// The boolean value
+        value: bool,
+        /// The span of the literal in the source code
+        span: Span,
+    },
     /// A binary operation
     BinOp {
         /// The left-hand side expression
@@ -15,6 +35,8 @@ pub enum Expr<'a> {
         op: BinOp,
         /// The right-hand side expression
         rhs: Box<Expr<'a>>,
+        /// The span of the expression in the source code
+        span: Span,
     },
     /// A unary operation
     UnaryOp {
@@ -22,6 +44,8 @@ pub enum Expr<'a> {
         op: UnaryOp,
         /// The expression
         expr: Box<Expr<'a>>,
+        /// The span of the expression in the source code
+        span: Span,
     },
     /// A function call
     FnCall {
@@ -29,16 +53,20 @@ pub enum Expr<'a> {
         name: &'a str,
         /// The arguments
         args: Vec<Expr<'a>>,
+        /// The span of the function call in the source code
+        span: Span,
     },
     /// A variable reference (identifier)
     VarRef {
         /// The variable name
         name: &'a str,
+        /// The span of the variable reference in the source code
+        span: Span,
     },
 }
 
 /// Binary operator
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum BinOp {
     /// Addition (+)
     Add,
@@ -67,7 +95,7 @@ pub enum BinOp {
 }
 
 /// Unary operator
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum UnaryOp {
     /// Negation (-)
     Neg,
@@ -76,31 +104,39 @@ pub enum UnaryOp {
 }
 
 /// Type
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-pub enum Type {
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum Type<'a> {
+    Bool,
     I32,
     I64,
     F32,
     F64,
     Void,
     String,
+    Fn {
+        /// The return type of the function
+        return_type: Box<Type<'a>>,
+        /// The parameters of the function
+        params: Vec<FnParam<'a, Type<'a>>>,
+    },
 }
 
 /// Function parameter
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-pub struct FnParam<'a, Ty = Option<Type>> {
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FnParam<'a, Ty = Option<Type<'a>>> {
     /// The name of the parameter
     pub name: &'a str,
 
     /// The type of the parameter
     pub r#type: Ty,
-}
 
-pub type FnParamTyped<'a> = FnParam<'a, Type>;
+    /// The span of the parameter in the source code
+    pub span: Span,
+}
 
 /// Statements
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum Stmt<'a, Ty = Option<Type>> {
+pub enum Stmt<'a, Ty = Option<Type<'a>>> {
     /// A function declaration
     FnDecl {
         /// The name of the function
@@ -111,6 +147,8 @@ pub enum Stmt<'a, Ty = Option<Type>> {
         r#type: Ty,
         /// The body of the function
         body: Vec<Stmt<'a, Ty>>,
+        /// The span of the function declaration in the source code
+        span: Span,
     },
 
     /// A variable declaration (let)
@@ -121,6 +159,8 @@ pub enum Stmt<'a, Ty = Option<Type>> {
         r#type: Ty,
         /// The value
         value: Option<Expr<'a>>,
+        /// The span of the variable declaration in the source code
+        span: Span,
     },
 
     /// A mutable variable declaration (var)
@@ -131,6 +171,8 @@ pub enum Stmt<'a, Ty = Option<Type>> {
         r#type: Ty,
         /// The value
         value: Option<Expr<'a>>,
+        /// The span of the variable declaration in the source code
+        span: Span,
     },
 
     /// An assignment statement
@@ -139,6 +181,8 @@ pub enum Stmt<'a, Ty = Option<Type>> {
         name: &'a str,
         /// The value to assign
         value: Box<Expr<'a>>,
+        /// The span of the assignment in the source code
+        span: Span,
     },
 
     /// An if statement
@@ -149,12 +193,16 @@ pub enum Stmt<'a, Ty = Option<Type>> {
         then_branch: Vec<Stmt<'a, Ty>>,
         /// The else branch
         else_branch: Option<Vec<Stmt<'a, Ty>>>,
+        /// The span of the if statement in the source code
+        span: Span,
     },
 
     /// A return statement
     Return {
         /// The expression to return
         expr: Option<Box<Expr<'a>>>,
+        /// The span of the return statement in the source code
+        span: Span,
     },
 
     /// An expression statement
@@ -162,22 +210,109 @@ pub enum Stmt<'a, Ty = Option<Type>> {
     ExprStmt {
         /// The expression
         expr: Box<Expr<'a>>,
+        /// The span of the expression statement in the source code
+        span: Span,
     },
 
     /// An expression
     Expr {
         /// The expression
         expr: Box<Expr<'a>>,
+        /// The span of the expression in the source code
+        span: Span,
     },
 }
 
-pub type StmtTyped<'a> = Stmt<'a, Type>;
-
 /// The top-level program structure
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Program<'a, Ty = Option<Type>> {
+pub struct Program<'a, Ty = Option<Type<'a>>> {
     /// The expression that makes up the program
     pub stmts: Vec<Stmt<'a, Ty>>,
 }
 
-pub type ProgramTyped<'a> = Program<'a, Type>;
+impl std::fmt::Display for Type<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Bool => write!(f, "bool"),
+            Type::I32 => write!(f, "i32"),
+            Type::I64 => write!(f, "i64"),
+            Type::F32 => write!(f, "f32"),
+            Type::F64 => write!(f, "f64"),
+            Type::Void => write!(f, "void"),
+            Type::String => write!(f, "string"),
+            Type::Fn {
+                return_type,
+                params,
+            } => {
+                write!(f, "fn(")?;
+                for (i, param) in params.iter().enumerate() {
+                    write!(f, "{}", param)?;
+                    if i < params.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ") -> {}", return_type)
+            }
+        }
+    }
+}
+
+impl From<chumsky::span::SimpleSpan> for Span {
+    fn from(span: chumsky::span::SimpleSpan) -> Self {
+        Span {
+            start: span.start,
+            end: span.end,
+            context: span.context,
+        }
+    }
+}
+
+impl Span {
+    pub fn into_range(&self) -> std::ops::Range<usize> {
+        self.start..self.end
+    }
+}
+
+impl std::fmt::Display for FnParam<'_, Option<Type<'_>>> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.r#type {
+            Some(ty) => write!(f, "{}: {}", self.name, ty),
+            None => write!(f, "{}", self.name),
+        }
+    }
+}
+
+impl std::fmt::Display for FnParam<'_, Type<'_>> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.r#type)
+    }
+}
+
+impl<'a> Expr<'a> {
+    pub fn span(&self) -> &Span {
+        match self {
+            Expr::IntLit { span, .. } => span,
+            Expr::BoolLit { span, .. } => span,
+            Expr::BinOp { span, .. } => span,
+            Expr::UnaryOp { span, .. } => span,
+            Expr::FnCall { span, .. } => span,
+            Expr::VarRef { span, .. } => span,
+        }
+    }
+}
+
+impl<'a> Stmt<'a, Type<'a>> {
+    #[allow(dead_code)]
+    pub fn span(&self) -> &Span {
+        match self {
+            Stmt::FnDecl { span, .. } => span,
+            Stmt::LetDecl { span, .. } => span,
+            Stmt::VarDecl { span, .. } => span,
+            Stmt::Assign { span, .. } => span,
+            Stmt::If { span, .. } => span,
+            Stmt::Return { span, .. } => span,
+            Stmt::ExprStmt { span, .. } => span,
+            Stmt::Expr { span, .. } => span,
+        }
+    }
+}
