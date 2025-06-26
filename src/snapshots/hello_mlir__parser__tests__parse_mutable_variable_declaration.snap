@@ -2,18 +2,38 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - VarDecl:
-      name: x
-      type: I32
-      value:
-        IntLit:
-          value: 42
+functions:
+  - name: test
+    params: []
+    type: I32
+    body:
+      - VarDecl:
+          name: x
+          type: I32
+          value:
+            IntLit:
+              value: 42
+              span:
+                start: 32
+                end: 34
+                context: ~
           span:
-            start: 13
-            end: 15
+            start: 19
+            end: 35
             context: ~
-      span:
-        start: 0
-        end: 16
-        context: ~
+      - Expr:
+          expr:
+            VarRef:
+              name: x
+              span:
+                start: 36
+                end: 37
+                context: ~
+          span:
+            start: 36
+            end: 37
+            context: ~
+    span:
+      start: 0
+      end: 39
+      context: ~

@@ -2,30 +2,50 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - If:
-      condition:
-        IntLit:
-          value: 1
-          span:
-            start: 3
-            end: 4
-            context: ~
-      then_branch:
-        - Expr:
-            expr:
-              IntLit:
-                value: 1
+functions:
+  - name: test
+    params: []
+    type: I32
+    body:
+      - If:
+          condition:
+            IntLit:
+              value: 1
+              span:
+                start: 22
+                end: 23
+                context: ~
+          then_branch:
+            - Expr:
+                expr:
+                  IntLit:
+                    value: 1
+                    span:
+                      start: 26
+                      end: 27
+                      context: ~
                 span:
-                  start: 7
-                  end: 8
+                  start: 26
+                  end: 27
                   context: ~
-            span:
-              start: 7
-              end: 8
-              context: ~
-      else_branch: ~
-      span:
-        start: 0
-        end: 10
-        context: ~
+          else_branch:
+            - Expr:
+                expr:
+                  IntLit:
+                    value: 0
+                    span:
+                      start: 37
+                      end: 38
+                      context: ~
+                span:
+                  start: 37
+                  end: 38
+                  context: ~
+          span:
+            start: 19
+            end: 40
+            context: ~
+    span:
+      start: 0
+      end: 42
+      context: ~

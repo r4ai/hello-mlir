@@ -9,6 +9,6 @@ Err:
       right: Bool
   file_id: "<test>"
   span:
-    start: 0
-    end: 8
+    start: 23
+    end: 31
     context: ~

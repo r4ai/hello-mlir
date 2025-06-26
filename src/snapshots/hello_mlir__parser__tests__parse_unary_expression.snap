@@ -2,23 +2,31 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - Expr:
-      expr:
-        UnaryOp:
-          op: Neg
+functions:
+  - name: test
+    params: []
+    type: I32
+    body:
+      - Expr:
           expr:
-            IntLit:
-              value: 42
+            UnaryOp:
+              op: Neg
+              expr:
+                IntLit:
+                  value: 42
+                  span:
+                    start: 20
+                    end: 22
+                    context: ~
               span:
-                start: 1
-                end: 3
+                start: 19
+                end: 22
                 context: ~
           span:
-            start: 0
-            end: 3
+            start: 19
+            end: 22
             context: ~
-      span:
-        start: 0
-        end: 3
-        context: ~
+    span:
+      start: 0
+      end: 24
+      context: ~

@@ -2,25 +2,24 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - FnDecl:
-      name: zero
-      params: []
-      type: I32
-      body:
-        - Expr:
-            expr:
-              IntLit:
-                value: 0
-                span:
-                  start: 19
-                  end: 20
-                  context: ~
-            span:
-              start: 19
-              end: 20
-              context: ~
-      span:
-        start: 0
-        end: 22
-        context: ~
+functions:
+  - name: zero
+    params: []
+    type: I32
+    body:
+      - Expr:
+          expr:
+            IntLit:
+              value: 0
+              span:
+                start: 19
+                end: 20
+                context: ~
+          span:
+            start: 19
+            end: 20
+            context: ~
+    span:
+      start: 0
+      end: 22
+      context: ~

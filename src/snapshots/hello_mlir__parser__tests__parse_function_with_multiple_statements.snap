@@ -2,65 +2,64 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - FnDecl:
-      name: compute
-      params: []
-      type: I32
-      body:
-        - ExprStmt:
-            expr:
-              BinOp:
-                lhs:
-                  IntLit:
-                    value: 10
-                    span:
-                      start: 22
-                      end: 24
-                      context: ~
-                op: Add
-                rhs:
-                  IntLit:
-                    value: 20
-                    span:
-                      start: 27
-                      end: 29
-                      context: ~
-                span:
-                  start: 22
-                  end: 29
-                  context: ~
-            span:
-              start: 22
-              end: 30
-              context: ~
-        - Expr:
-            expr:
-              BinOp:
-                lhs:
-                  IntLit:
-                    value: 30
-                    span:
-                      start: 31
-                      end: 33
-                      context: ~
-                op: Add
-                rhs:
-                  IntLit:
-                    value: 40
-                    span:
-                      start: 36
-                      end: 38
-                      context: ~
-                span:
-                  start: 31
-                  end: 38
-                  context: ~
-            span:
-              start: 31
-              end: 38
-              context: ~
-      span:
-        start: 0
-        end: 40
-        context: ~
+functions:
+  - name: compute
+    params: []
+    type: I32
+    body:
+      - ExprStmt:
+          expr:
+            BinOp:
+              lhs:
+                IntLit:
+                  value: 10
+                  span:
+                    start: 22
+                    end: 24
+                    context: ~
+              op: Add
+              rhs:
+                IntLit:
+                  value: 20
+                  span:
+                    start: 27
+                    end: 29
+                    context: ~
+              span:
+                start: 22
+                end: 29
+                context: ~
+          span:
+            start: 22
+            end: 30
+            context: ~
+      - Expr:
+          expr:
+            BinOp:
+              lhs:
+                IntLit:
+                  value: 30
+                  span:
+                    start: 31
+                    end: 33
+                    context: ~
+              op: Add
+              rhs:
+                IntLit:
+                  value: 40
+                  span:
+                    start: 36
+                    end: 38
+                    context: ~
+              span:
+                start: 31
+                end: 38
+                context: ~
+          span:
+            start: 31
+            end: 38
+            context: ~
+    span:
+      start: 0
+      end: 40
+      context: ~

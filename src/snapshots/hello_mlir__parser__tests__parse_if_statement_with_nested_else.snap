@@ -2,68 +2,76 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - If:
-      condition:
-        IntLit:
-          value: 1
+functions:
+  - name: test
+    params: []
+    type: I32
+    body:
+      - If:
+          condition:
+            IntLit:
+              value: 1
+              span:
+                start: 26
+                end: 27
+                context: ~
+          then_branch:
+            - If:
+                condition:
+                  IntLit:
+                    value: 2
+                    span:
+                      start: 41
+                      end: 42
+                      context: ~
+                then_branch:
+                  - Expr:
+                      expr:
+                        IntLit:
+                          value: 3
+                          span:
+                            start: 57
+                            end: 58
+                            context: ~
+                      span:
+                        start: 57
+                        end: 58
+                        context: ~
+                else_branch:
+                  - Expr:
+                      expr:
+                        IntLit:
+                          value: 4
+                          span:
+                            start: 88
+                            end: 89
+                            context: ~
+                      span:
+                        start: 88
+                        end: 89
+                        context: ~
+                span:
+                  start: 38
+                  end: 99
+                  context: ~
+          else_branch:
+            - Expr:
+                expr:
+                  IntLit:
+                    value: 5
+                    span:
+                      start: 121
+                      end: 122
+                      context: ~
+                span:
+                  start: 121
+                  end: 122
+                  context: ~
           span:
-            start: 3
-            end: 4
+            start: 23
+            end: 128
             context: ~
-      then_branch:
-        - If:
-            condition:
-              IntLit:
-                value: 2
-                span:
-                  start: 14
-                  end: 15
-                  context: ~
-            then_branch:
-              - Expr:
-                  expr:
-                    IntLit:
-                      value: 3
-                      span:
-                        start: 26
-                        end: 27
-                        context: ~
-                  span:
-                    start: 26
-                    end: 27
-                    context: ~
-            else_branch:
-              - Expr:
-                  expr:
-                    IntLit:
-                      value: 4
-                      span:
-                        start: 49
-                        end: 50
-                        context: ~
-                  span:
-                    start: 49
-                    end: 50
-                    context: ~
-            span:
-              start: 11
-              end: 56
-              context: ~
-      else_branch:
-        - Expr:
-            expr:
-              IntLit:
-                value: 5
-                span:
-                  start: 70
-                  end: 71
-                  context: ~
-            span:
-              start: 70
-              end: 71
-              context: ~
-      span:
-        start: 0
-        end: 73
-        context: ~
+    span:
+      start: 0
+      end: 130
+      context: ~

@@ -1,0 +1,39 @@
+// 変数宣言とスコープの例
+fn immutable_variables() -> i32 {
+    let x: i32 = 10;
+    let y: i32 = 20;
+    let z: i32 = x + y;
+    z
+}
+
+fn mutable_variables() -> i32 {
+    var counter: i32 = 0;
+    counter = counter + 1;
+    counter = counter + 5;
+    counter
+}
+
+fn variable_shadowing() -> i32 {
+    let x: i32 = 10;
+    
+    if true {
+        let x: i32 = 20;  // シャドウイング
+        x * 2
+    } else {
+        x
+    }
+}
+
+fn mixed_variable_types() -> i32 {
+    let number: i32 = 42;
+    let flag: bool = true;
+    var result: i32 = 0;
+    
+    if flag {
+        result = number;
+    } else {
+        result = -number;
+    }
+    
+    result
+}

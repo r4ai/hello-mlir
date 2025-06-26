@@ -223,11 +223,26 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
     },
 }
 
+/// Function declaration (for file-level declarations only)
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FnDecl<'a, Ty = Option<Type<'a>>> {
+    /// The name of the function
+    pub name: &'a str,
+    /// The parameters of the function
+    pub params: Vec<FnParam<'a, Ty>>,
+    /// The return type of the function
+    pub r#type: Ty,
+    /// The body of the function
+    pub body: Vec<Stmt<'a, Ty>>,
+    /// The span of the function declaration in the source code
+    pub span: Span,
+}
+
 /// The top-level program structure
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Program<'a, Ty = Option<Type<'a>>> {
-    /// The expression that makes up the program
-    pub stmts: Vec<Stmt<'a, Ty>>,
+    /// The function declarations that make up the program
+    pub functions: Vec<FnDecl<'a, Ty>>,
 }
 
 impl std::fmt::Display for Type<'_> {
@@ -268,7 +283,7 @@ impl From<chumsky::span::SimpleSpan> for Span {
 }
 
 impl Span {
-    pub fn into_range(&self) -> std::ops::Range<usize> {
+    pub fn to_range(&self) -> std::ops::Range<usize> {
         self.start..self.end
     }
 }
@@ -314,5 +329,12 @@ impl<'a> Stmt<'a, Type<'a>> {
             Stmt::ExprStmt { span, .. } => span,
             Stmt::Expr { span, .. } => span,
         }
+    }
+}
+
+impl<'a> FnDecl<'a, Type<'a>> {
+    #[allow(dead_code)]
+    pub fn span(&self) -> &Span {
+        &self.span
     }
 }

@@ -1,0 +1,68 @@
+// 様々なシンプルな関数の例
+
+// 最もシンプルな関数
+fn simple() -> i32 {
+    42
+}
+
+// void関数
+fn do_nothing() -> void {
+    let temp: i32 = 1;
+}
+
+// パラメータなしの関数
+fn get_zero() -> i32 {
+    0
+}
+
+fn get_true() -> bool {
+    true
+}
+
+fn get_false() -> bool {
+    false
+}
+
+// 1つのパラメータを持つ関数
+fn identity(x: i32) -> i32 {
+    x
+}
+
+fn negate(x: i32) -> i32 {
+    -x
+}
+
+fn is_positive(x: i32) -> bool {
+    x > 0
+}
+
+// 2つのパラメータを持つ関数
+fn first(a: i32, b: i32) -> i32 {
+    a
+}
+
+fn second(a: i32, b: i32) -> i32 {
+    b
+}
+
+// 空のボディ（voidのみ）
+fn empty_void() -> void {
+}
+
+// 最小限の計算
+fn add_one(x: i32) -> i32 {
+    x + 1
+}
+
+fn subtract_one(x: i32) -> i32 {
+    x - 1
+}
+
+// 定数を返す関数
+fn pi_approximation() -> i32 {
+    3  // 整数での近似
+}
+
+fn magic_number() -> i32 {
+    42
+}

@@ -8,6 +8,6 @@ Err:
       name: x
   file_id: "<test>"
   span:
-    start: 17
-    end: 33
+    start: 44
+    end: 60
     context: ~

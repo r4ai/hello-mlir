@@ -1,0 +1,40 @@
+// 型システムの例
+fn integer_types() -> i32 {
+    let small: i32 = 42;
+    let large: i64 = 1000000;
+    
+    // 型変換は現在サポートされていないため、i32のみ使用
+    small + 100
+}
+
+fn boolean_operations() -> bool {
+    let flag1: bool = true;
+    let flag2: bool = false;
+    
+    flag1 && !flag2
+}
+
+fn void_function() -> void {
+    let temp: i32 = 42;
+    // void関数は値を返さない
+}
+
+fn function_with_all_types(num: i32, flag: bool) -> i32 {
+    if flag {
+        num * 2
+    } else {
+        num / 2
+    }
+}
+
+// 将来的な型拡張の例（コメント）
+// fn string_example() -> string {
+//     let message: string = "Hello, World!";
+//     message
+// }
+
+// fn float_example() -> f32 {
+//     let pi: f32 = 3.14159;
+//     let radius: f32 = 5.0;
+//     pi * radius * radius
+// }

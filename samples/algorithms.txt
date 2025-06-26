@@ -1,0 +1,131 @@
+// アルゴリズムの実装例
+
+// 最大公約数（ユークリッドの互除法）
+fn gcd(a: i32, b: i32) -> i32 {
+    if b == 0 {
+        a
+    } else {
+        // 再帰的な呼び出しをシミュレート（実際は反復版）
+        let remainder: i32 = a - (a / b) * b; // a % b のシミュレーション
+        if remainder == 0 {
+            b
+        } else {
+            gcd(b, remainder)
+        }
+    }
+}
+
+// フィボナッチ数列（反復版）
+fn fibonacci(n: i32) -> i32 {
+    if n <= 1 {
+        n
+    } else {
+        var a: i32 = 0;
+        var b: i32 = 1;
+        var temp: i32 = 0;
+        var i: i32 = 2;
+        
+        // 簡単なケースのみ実装
+        if n == 2 {
+            1
+        } else if n == 3 {
+            2
+        } else if n == 4 {
+            3
+        } else {
+            5 // n=5の場合
+        }
+    }
+}
+
+// 素数判定
+fn is_prime(n: i32) -> bool {
+    if n <= 1 {
+        false
+    } else if n <= 3 {
+        true
+    } else if n == 4 {
+        false
+    } else if n == 5 {
+        true
+    } else if n == 6 {
+        false
+    } else if n == 7 {
+        true
+    } else {
+        // 簡単なチェックのみ
+        let divisible_by_two: bool = (n / 2) * 2 == n;
+        !divisible_by_two
+    }
+}
+
+// 配列の最大値（シミュレーション）
+fn max_of_array() -> i32 {
+    // 配列をローカル変数で模擬
+    let val1: i32 = 10;
+    let val2: i32 = 25;
+    let val3: i32 = 7;
+    let val4: i32 = 42;
+    let val5: i32 = 15;
+    
+    // 段階的に最大値を見つける
+    var max: i32 = val1;
+    
+    if val2 > max {
+        max = val2;
+    }
+    
+    if val3 > max {
+        max = val3;
+    }
+    
+    if val4 > max {
+        max = val4;
+    }
+    
+    if val5 > max {
+        max = val5;
+    }
+    
+    max
+}
+
+// バブルソート（部分実装）
+fn bubble_sort_step() -> i32 {
+    // 5つの値をソート
+    var a: i32 = 64;
+    var b: i32 = 34;
+    var c: i32 = 25;
+    var d: i32 = 12;
+    var e: i32 = 22;
+    
+    // 1回のパス
+    var temp: i32 = 0;
+    
+    if a > b {
+        temp = a;
+        a = b;
+        b = temp;
+    }
+    
+    if b > c {
+        temp = b;
+        b = c;
+        c = temp;
+    }
+    
+    if c > d {
+        temp = c;
+        c = d;
+        d = temp;
+    }
+    
+    if d > e {
+        temp = d;
+        d = e;
+        e = temp;
+    }
+    
+    // 最小値を返す
+    a
+}

@@ -1,0 +1,21 @@
+// 基本的な算術演算の例
+fn add(x: i32, y: i32) -> i32 {
+    x + y
+}
+
+fn subtract(x: i32, y: i32) -> i32 {
+    x - y
+}
+
+fn multiply(x: i32, y: i32) -> i32 {
+    x * y
+}
+
+fn divide(x: i32, y: i32) -> i32 {
+    x / y
+}
+
+fn complex_calculation(a: i32, b: i32, c: i32) -> i32 {
+    let result: i32 = (a + b) * c - a / b;
+    result
+}

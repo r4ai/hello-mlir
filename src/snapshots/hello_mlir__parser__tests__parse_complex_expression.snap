@@ -2,58 +2,66 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - Expr:
-      expr:
-        BinOp:
-          lhs:
+functions:
+  - name: test
+    params: []
+    type: I32
+    body:
+      - Expr:
+          expr:
             BinOp:
               lhs:
-                IntLit:
-                  value: 42
-                  span:
-                    start: 0
-                    end: 2
-                    context: ~
-              op: Add
-              rhs:
                 BinOp:
                   lhs:
                     IntLit:
-                      value: 10
+                      value: 42
                       span:
-                        start: 6
-                        end: 8
+                        start: 19
+                        end: 21
                         context: ~
-                  op: Mul
+                  op: Add
                   rhs:
-                    IntLit:
-                      value: 5
+                    BinOp:
+                      lhs:
+                        IntLit:
+                          value: 10
+                          span:
+                            start: 25
+                            end: 27
+                            context: ~
+                      op: Mul
+                      rhs:
+                        IntLit:
+                          value: 5
+                          span:
+                            start: 30
+                            end: 31
+                            context: ~
                       span:
-                        start: 11
-                        end: 12
+                        start: 25
+                        end: 31
                         context: ~
                   span:
-                    start: 6
-                    end: 12
+                    start: 19
+                    end: 32
+                    context: ~
+              op: Sub
+              rhs:
+                IntLit:
+                  value: 8
+                  span:
+                    start: 35
+                    end: 36
                     context: ~
               span:
-                start: 0
-                end: 13
-                context: ~
-          op: Sub
-          rhs:
-            IntLit:
-              value: 8
-              span:
-                start: 16
-                end: 17
+                start: 19
+                end: 36
                 context: ~
           span:
-            start: 0
-            end: 17
+            start: 19
+            end: 36
             context: ~
-      span:
-        start: 0
-        end: 17
-        context: ~
+    span:
+      start: 0
+      end: 38
+      context: ~

@@ -1,0 +1,5 @@
+---
+source: src/parser.rs
+expression: "format!(\"{:?}\", errors)"
+---
+"[found 'If' at 0..2 expected 'FunctionDeclaration', or end of input]"

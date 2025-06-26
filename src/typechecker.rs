@@ -50,30 +50,30 @@ pub struct TypeError<'a> {
     pub span: Span,
 }
 
-impl ToString for TypeError<'_> {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for TypeError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             TypeErrorKind::MismatchedTypes { left, right } => {
-                format!("Mismatched types: {:?} and {:?}", left, right)
+                write!(f, "Mismatched types: {:?} and {:?}", left, right)
             }
             TypeErrorKind::InvalidOperation { message } => {
-                format!("Invalid operation: {}", message)
+                write!(f, "Invalid operation: {}", message)
             }
             TypeErrorKind::DuplicateVariableDeclaration { name } => {
-                format!("Duplicate variable declaration: {}", name)
+                write!(f, "Duplicate variable declaration: {}", name)
             }
             TypeErrorKind::DuplicateFunctionDeclaration { name } => {
-                format!("Duplicate function declaration: {}", name)
+                write!(f, "Duplicate function declaration: {}", name)
             }
             TypeErrorKind::InvalidFunctionCall { message } => {
-                format!("Invalid function call: {}", message)
+                write!(f, "Invalid function call: {}", message)
             }
-            TypeErrorKind::FunctionNotFound { name } => format!("Function not found: {}", name),
-            TypeErrorKind::VariableNotFound { name } => format!("Variable not found: {}", name),
+            TypeErrorKind::FunctionNotFound { name } => write!(f, "Function not found: {}", name),
+            TypeErrorKind::VariableNotFound { name } => write!(f, "Variable not found: {}", name),
             TypeErrorKind::AnnotationNotFound { message } => {
-                format!("Annotation not found: {}", message)
+                write!(f, "Annotation not found: {}", message)
             }
-            TypeErrorKind::InternalError { message } => format!("Internal error: {}", message),
+            TypeErrorKind::InternalError { message } => write!(f, "Internal error: {}", message),
         }
     }
 }
@@ -475,7 +475,7 @@ impl<'a> TypeChecker<'a> {
                         .map(|stmt| self.typecheck_stmt(stmt))
                         .collect::<Result<Vec<_>, _>>()?
                         .into_iter()
-                        .last()
+                        .next_back()
                         .flatten()
                         .unwrap_or(ast::Type::Void);
                     assert_equal(
@@ -602,8 +602,16 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub fn typecheck_program(&mut self, program: &ast::Program<'a>) -> Result<(), TypeError<'a>> {
-        for stmt in &program.stmts {
-            self.typecheck_stmt(stmt)?;
+        for function in &program.functions {
+            // Convert FnDecl to Stmt::FnDecl for processing
+            let stmt = ast::Stmt::FnDecl {
+                name: function.name,
+                params: function.params.clone(),
+                r#type: function.r#type.clone(),
+                body: function.body.clone(),
+                span: function.span.clone(),
+            };
+            self.typecheck_stmt(&stmt)?;
         }
         Ok(())
     }
@@ -645,7 +653,9 @@ mod tests {
                 return 0;
             }
 
-            zero()
+            fn main() -> i32 {
+                zero()
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_ok());
@@ -658,7 +668,9 @@ mod tests {
                 return 0;
             }
 
-            one()
+            fn main() -> i32 {
+                one()
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_err());
@@ -668,8 +680,10 @@ mod tests {
     #[test]
     fn test_variable_found() {
         let source = indoc! {"
-            let x: i32 = 42;
-            x
+            fn main() -> i32 {
+                let x: i32 = 42;
+                x
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_ok());
@@ -678,8 +692,10 @@ mod tests {
     #[test]
     fn test_variable_not_found() {
         let source = indoc! {"
-            let x: i32 = 42;
-            y
+            fn main() -> i32 {
+                let x: i32 = 42;
+                y
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_err());
@@ -695,24 +711,31 @@ mod tests {
                 x + y
             }
 
-            let x: i32 = 42;
-            let y: i32 = 43;
+            fn main() -> i32 {
+                let x: i32 = 42;
+                let y: i32 = 43;
 
-            if true {
-                let x: i32 = 44;
-            } else {
-                let y: i32 = 45;
+                if true {
+                    let x: i32 = 44;
+                } else {
+                    let y: i32 = 45;
+                }
+                
+                x + y
             }
         "};
         let result = typecheck(source);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
     }
 
     #[test]
     fn test_duplicate_variable_declaration() {
         let source = indoc! {"
-            let x: i32 = 42;
-            let x: i32 = 43;
+            fn main() -> i32 {
+                let x: i32 = 42;
+                let x: i32 = 43;
+                x
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_err());
@@ -738,8 +761,10 @@ mod tests {
     #[test]
     fn test_mismatched_types() {
         let source = indoc! {"
-            let x: i32 = true;
-            0
+            fn main() -> i32 {
+                let x: i32 = true;
+                0
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_err());
@@ -749,9 +774,11 @@ mod tests {
     #[test]
     fn test_matched_types() {
         let source = indoc! {"
-            let x: i32 = 42;
-            let y: i32 = 43;
-            x + y
+            fn main() -> i32 {
+                let x: i32 = 42;
+                let y: i32 = 43;
+                x + y
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_ok());
@@ -760,7 +787,9 @@ mod tests {
     #[test]
     fn test_invalid_operation() {
         let source = indoc! {"
-            1 + true
+            fn main() -> i32 {
+                1 + true
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_err());
@@ -770,7 +799,9 @@ mod tests {
     #[test]
     fn test_valid_operation() {
         let source = indoc! {"
-            1 + 2
+            fn main() -> i32 {
+                1 + 2
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_ok());
@@ -783,7 +814,9 @@ mod tests {
                 x + y
             }
 
-            add(1, true)
+            fn main() -> i32 {
+                add(1, true)
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_err());
@@ -797,7 +830,9 @@ mod tests {
                 x + y
             }
 
-            add(1, 2)
+            fn main() -> i32 {
+                add(1, 2)
+            }
         "};
         let result = typecheck(source);
         assert!(result.is_ok());
@@ -809,7 +844,10 @@ mod tests {
             fn add(x: i32, y: i32) -> i32 {
                 x + y
             }
-            0
+            
+            fn main() -> i32 {
+                0
+            }
         "};
         let result = typecheck(source);
         assert!(

@@ -1,0 +1,50 @@
+// 複雑な式の例
+fn arithmetic_precedence() -> i32 {
+    let result: i32 = 2 + 3 * 4 - 5 / 2;
+    result
+}
+
+fn parentheses_grouping() -> i32 {
+    let result1: i32 = (2 + 3) * (4 - 1);
+    let result2: i32 = 2 * (3 + 4 * 5);
+    result1 + result2
+}
+
+fn unary_operations() -> i32 {
+    let positive: i32 = 42;
+    let negative: i32 = -positive;
+    let double_negative: i32 = -(-positive);
+    
+    double_negative + negative
+}
+
+fn boolean_precedence() -> bool {
+    let a: bool = true;
+    let b: bool = false;
+    let c: bool = true;
+    
+    // && has higher precedence than ||
+    a || b && c
+}
+
+fn mixed_expressions(x: i32, y: i32) -> i32 {
+    let condition1: bool = x > 0;
+    let condition2: bool = y < 100;
+    
+    if condition1 && condition2 {
+        (x + y) * 2
+    } else if !condition1 {
+        -x + y
+    } else {
+        x - y * 3
+    }
+}
+
+fn deeply_nested_expression() -> i32 {
+    let a: i32 = 1;
+    let b: i32 = 2;
+    let c: i32 = 3;
+    let d: i32 = 4;
+    
+    ((a + b) * (c - d)) + ((a * c) - (b / d))
+}

@@ -1,0 +1,38 @@
+// 関数呼び出しとパラメータの例
+fn square(x: i32) -> i32 {
+    x * x
+}
+
+fn cube(x: i32) -> i32 {
+    x * x * x
+}
+
+fn power_of_two(x: i32) -> i32 {
+    square(x) + square(x)
+}
+
+fn distance_squared(x1: i32, y1: i32, x2: i32, y2: i32) -> i32 {
+    let dx: i32 = x2 - x1;
+    let dy: i32 = y2 - y1;
+    square(dx) + square(dy)
+}
+
+fn factorial_iterative(n: i32) -> i32 {
+    var result: i32 = 1;
+    var i: i32 = 1;
+    
+    if n <= 1 {
+        result
+    } else {
+        // シンプルな反復処理のシミュレーション
+        result = result * n;
+        result = result * (n - 1);
+        result = result * (n - 2);
+        result
+    }
+}
+
+fn max_of_three(a: i32, b: i32, c: i32) -> i32 {
+    let max_ab: i32 = if a > b { a } else { b };
+    if max_ab > c { max_ab } else { c }
+}

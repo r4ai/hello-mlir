@@ -2,67 +2,66 @@
 source: src/parser.rs
 expression: program
 ---
-stmts:
-  - FnDecl:
-      name: run
-      params: []
-      type: I32
-      body:
-        - LetDecl:
-            name: a
-            type: I32
-            value:
-              IntLit:
-                value: 10
-                span:
-                  start: 99
-                  end: 101
-                  context: ~
-            span:
-              start: 66
-              end: 102
-              context: ~
-        - LetDecl:
-            name: b
-            type: I32
-            value:
-              IntLit:
-                value: 20
-                span:
-                  start: 120
-                  end: 122
-                  context: ~
-            span:
-              start: 107
-              end: 123
-              context: ~
-        - Expr:
-            expr:
-              BinOp:
-                lhs:
-                  VarRef:
-                    name: a
-                    span:
-                      start: 224
-                      end: 225
-                      context: ~
-                op: Add
-                rhs:
-                  VarRef:
-                    name: b
-                    span:
-                      start: 228
-                      end: 229
-                      context: ~
-                span:
-                  start: 224
-                  end: 229
-                  context: ~
-            span:
-              start: 224
-              end: 229
-              context: ~
-      span:
-        start: 16
-        end: 254
-        context: ~
+functions:
+  - name: run
+    params: []
+    type: I32
+    body:
+      - LetDecl:
+          name: a
+          type: I32
+          value:
+            IntLit:
+              value: 10
+              span:
+                start: 99
+                end: 101
+                context: ~
+          span:
+            start: 66
+            end: 102
+            context: ~
+      - LetDecl:
+          name: b
+          type: I32
+          value:
+            IntLit:
+              value: 20
+              span:
+                start: 120
+                end: 122
+                context: ~
+          span:
+            start: 107
+            end: 123
+            context: ~
+      - Expr:
+          expr:
+            BinOp:
+              lhs:
+                VarRef:
+                  name: a
+                  span:
+                    start: 224
+                    end: 225
+                    context: ~
+              op: Add
+              rhs:
+                VarRef:
+                  name: b
+                  span:
+                    start: 228
+                    end: 229
+                    context: ~
+              span:
+                start: 224
+                end: 229
+                context: ~
+          span:
+            start: 224
+            end: 229
+            context: ~
+    span:
+      start: 16
+      end: 254
+      context: ~

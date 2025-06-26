@@ -1,0 +1,91 @@
+---
+source: src/parser.rs
+expression: program
+---
+functions:
+  - name: zero
+    params: []
+    type: I32
+    body:
+      - Expr:
+          expr:
+            IntLit:
+              value: 0
+              span:
+                start: 19
+                end: 20
+                context: ~
+          span:
+            start: 19
+            end: 20
+            context: ~
+    span:
+      start: 0
+      end: 22
+      context: ~
+  - name: one
+    params: []
+    type: I32
+    body:
+      - Expr:
+          expr:
+            IntLit:
+              value: 1
+              span:
+                start: 41
+                end: 42
+                context: ~
+          span:
+            start: 41
+            end: 42
+            context: ~
+    span:
+      start: 23
+      end: 44
+      context: ~
+  - name: add
+    params:
+      - name: x
+        type: I32
+        span:
+          start: 52
+          end: 58
+          context: ~
+      - name: y
+        type: I32
+        span:
+          start: 60
+          end: 66
+          context: ~
+    type: I32
+    body:
+      - Expr:
+          expr:
+            BinOp:
+              lhs:
+                VarRef:
+                  name: x
+                  span:
+                    start: 77
+                    end: 78
+                    context: ~
+              op: Add
+              rhs:
+                VarRef:
+                  name: y
+                  span:
+                    start: 81
+                    end: 82
+                    context: ~
+              span:
+                start: 77
+                end: 82
+                context: ~
+          span:
+            start: 77
+            end: 82
+            context: ~
+    span:
+      start: 45
+      end: 84
+      context: ~

@@ -1,0 +1,13 @@
+// Type checkingが動作することを確認するシンプルなサンプル
+fn add(x: i32, y: i32) -> i32 {
+    x + y
+}
+
+fn get_number() -> i32 {
+    42
+}
+
+fn calculate(x: i32, y: i32) -> i32 {
+    let sum: i32 = x + y;
+    sum * 2
+}

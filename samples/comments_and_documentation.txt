@@ -1,0 +1,51 @@
+// このファイルはコメントの使用例を示しています
+
+/*
+ * 複数行コメントの例
+ * この関数は2つの数値を加算します
+ */
+fn add_with_comments(a: i32, b: i32) -> i32 {
+    // 引数をローカル変数にコピー
+    let first: i32 = a;
+    let second: i32 = b;
+    
+    /* 
+     * 結果を計算
+     * インライン計算を使用
+     */
+    let result: i32 = first + second; // 加算演算
+    
+    // 結果を返す
+    result
+}
+
+// シンプルな関数 - 行末コメント付き
+fn multiply(x: i32, y: i32) -> i32 { x * y } // 乗算
+
+/*
+ * より複雑な関数の例
+ * 条件分岐とコメントの組み合わせ
+ */
+fn complex_function_with_comments(input: i32) -> i32 {
+    // 入力値の検証
+    if input < 0 {
+        // 負の値の場合は絶対値を取る
+        let absolute: i32 = -input;
+        absolute * 2 // 2倍して返す
+    } else if input == 0 {
+        // ゼロの場合は特別な値を返す
+        42 /* マジックナンバー */
+    } else {
+        // 正の値の場合
+        /*
+         * 複雑な計算:
+         * 1. 入力値を2乗
+         * 2. 10を加算
+         * 3. 3で除算
+         */
+        let squared: i32 = input * input; // ステップ1
+        let added: i32 = squared + 10;    // ステップ2
+        let divided: i32 = added / 3;     // ステップ3
+        divided
+    }
+}

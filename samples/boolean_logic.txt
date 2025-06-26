@@ -1,0 +1,25 @@
+// ブール演算とロジックの例
+fn logical_and(a: bool, b: bool) -> bool {
+    a && b
+}
+
+fn logical_or(a: bool, b: bool) -> bool {
+    a || b
+}
+
+fn logical_not(a: bool) -> bool {
+    !a
+}
+
+fn compare_numbers(x: i32, y: i32) -> bool {
+    let equal: bool = x == y;
+    let not_equal: bool = x != y;
+    let less_than: bool = x < y;
+    let greater_than: bool = x > y;
+    
+    equal && !not_equal
+}
+
+fn complex_boolean_expression(a: i32, b: i32, c: i32) -> bool {
+    (a > b) && (b < c) || (a == c)
+}

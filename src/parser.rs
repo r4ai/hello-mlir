@@ -390,9 +390,50 @@ where
     })
     .boxed();
 
-    statements
+    // identifier ":" type
+    let function_parameter = identifier
+        .then_ignore(just(Token::Colon))
+        .then(r#type.clone())
+        .map_with(|(name, ty), e| ast::FnParam {
+            name,
+            r#type: Some(ty),
+            span: ast::Span::from(e.span()),
+        });
+
+    // "(" { function_parameter "," } function_parameter ")"
+    let function_parameters = just(Token::LParen)
+        .ignore_then(
+            function_parameter
+                .separated_by(just(Token::Comma))
+                .collect::<Vec<_>>(),
+        )
+        .then_ignore(just(Token::RParen));
+
+    // Top-level function declaration (only allowed at file level)
+    let top_level_function_declaration = just(Token::FunctionDeclaration)
+        .ignore_then(identifier)
+        .then(function_parameters)
+        .then_ignore(just(Token::RightArrow))
+        .then(r#type.clone())
+        .then(
+            just(Token::LBrace)
+                .ignore_then(statements.clone())
+                .then_ignore(just(Token::RBrace)),
+        )
+        .map_with(|(((name, params), return_type), body), e| ast::FnDecl {
+            name,
+            params,
+            r#type: Some(return_type),
+            body,
+            span: ast::Span::from(e.span()),
+        });
+
+    // Parse only function declarations at the top level
+    top_level_function_declaration
+        .repeated()
+        .collect::<Vec<_>>()
         .then_ignore(end())
-        .map(|stmts: Vec<ast::Stmt<'_, Option<ast::Type>>>| ast::Program { stmts })
+        .map(|functions: Vec<ast::FnDecl<'_, Option<ast::Type>>>| ast::Program { functions })
 }
 
 pub fn parse(src: &str) -> ParseResult<ast::Program, chumsky::error::Rich<'_, Token<'_>>> {
@@ -431,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_parse_integer_literal() {
-        let input = "42";
+        let input = "fn test() -> i32 { 42 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -441,7 +482,7 @@ mod tests {
 
     #[test]
     fn test_parse_binary_expression() {
-        let input = "42 + 10";
+        let input = "fn test() -> i32 { 42 + 10 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -451,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_parse_complex_expression() {
-        let input = "42 + (10 * 5) - 8";
+        let input = "fn test() -> i32 { 42 + (10 * 5) - 8 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -461,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_parse_unary_expression() {
-        let input = "-42";
+        let input = "fn test() -> i32 { -42 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -493,7 +534,7 @@ mod tests {
     fn test_parse_function_call() {
         let input = indoc! {"
             fn zero() -> i32 { 0 }
-            zero()
+            fn main() -> i32 { zero() }  
         "};
         let result = parse(input);
         assert!(has_no_errors(&result));
@@ -504,7 +545,7 @@ mod tests {
 
     #[test]
     fn test_parse_variable_declaration() {
-        let input = "let x: i32 = 42;";
+        let input = "fn test() -> i32 { let x: i32 = 42; x }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -514,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_parse_variable_declaration_without_type() {
-        let input = "let x = 42;";
+        let input = "fn test() -> i32 { let x = 42; x }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -524,7 +565,7 @@ mod tests {
 
     #[test]
     fn test_parse_variable_declaration_without_value() {
-        let input = "let x: i32;";
+        let input = "fn test() -> i32 { let x: i32; 42 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -534,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_parse_mutable_variable_declaration() {
-        let input = "var x: i32 = 42;";
+        let input = "fn test() -> i32 { var x: i32 = 42; x }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -544,7 +585,7 @@ mod tests {
 
     #[test]
     fn test_parse_mutable_variable_declaration_without_type() {
-        let input = "var x = 42;";
+        let input = "fn test() -> i32 { var x = 42; x }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -554,7 +595,7 @@ mod tests {
 
     #[test]
     fn test_parse_mutable_variable_declaration_without_value() {
-        let input = "var x: i32;";
+        let input = "fn test() -> i32 { var x: i32; 42 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -564,7 +605,7 @@ mod tests {
 
     #[test]
     fn test_parse_assignment() {
-        let input = "x = 42;";
+        let input = "fn test() -> i32 { var x: i32 = 0; x = 42; x }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -574,7 +615,7 @@ mod tests {
 
     #[test]
     fn test_parse_if_statement() {
-        let input = "if 1 { 1 }";
+        let input = "fn test() -> i32 { if 1 { 1 } else { 0 } }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -584,7 +625,7 @@ mod tests {
 
     #[test]
     fn test_parse_if_statement_with_else() {
-        let input = "if 1 { 1 } else { 2 }";
+        let input = "fn test() -> i32 { if 1 { 1 } else { 2 } }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -595,14 +636,16 @@ mod tests {
     #[test]
     fn test_parse_if_statement_with_nested_else() {
         let input = indoc! {"
-            if 1 {
-                if 2 {
-                    3
+            fn test() -> i32 {
+                if 1 {
+                    if 2 {
+                        3
+                    } else {
+                        4
+                    }
                 } else {
-                    4
+                    5
                 }
-            } else {
-                5
             }
         "};
         let result = parse(input);
@@ -615,14 +658,16 @@ mod tests {
     #[test]
     fn test_parse_if_statement_with_else_if_chain() {
         let input = indoc! {"
-            if 1 {
-                1
-            } else if 2 {
-                2
-            } else if 3 {
-                3
-            } else {
-                4
+            fn test() -> i32 {
+                if 1 {
+                    1
+                } else if 2 {
+                    2
+                } else if 3 {
+                    3
+                } else {
+                    4
+                }
             }
         "};
         let result = parse(input);
@@ -663,5 +708,110 @@ mod tests {
 
         let program = result.into_result().unwrap();
         assert_yaml_snapshot!(program);
+    }
+
+    // Tests for new grammar constraint: only function declarations at file level
+    #[test]
+    fn test_parse_top_level_let_declaration_should_fail() {
+        let input = "let x: i32 = 42;";
+        let result = parse(input);
+
+        // This should now fail with our new grammar
+        assert!(!has_no_errors(&result));
+        let errors = result.into_errors();
+        assert_yaml_snapshot!(format!("{:?}", errors));
+    }
+
+    #[test]
+    fn test_parse_top_level_expression_should_fail() {
+        let input = "42 + 10";
+        let result = parse(input);
+
+        // This should now fail with our new grammar
+        assert!(!has_no_errors(&result));
+        let errors = result.into_errors();
+        assert_yaml_snapshot!(format!("{:?}", errors));
+    }
+
+    #[test]
+    fn test_parse_top_level_assignment_should_fail() {
+        let input = "x = 42;";
+        let result = parse(input);
+
+        // This should now fail with our new grammar
+        assert!(!has_no_errors(&result));
+        let errors = result.into_errors();
+        assert_yaml_snapshot!(format!("{:?}", errors));
+    }
+
+    #[test]
+    fn test_parse_only_function_declarations_should_pass() {
+        let input = indoc! {"
+            fn zero() -> i32 { 0 }
+            fn one() -> i32 { 1 }
+            fn add(x: i32, y: i32) -> i32 { x + y }
+        "};
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_mixed_top_level_statements_should_fail() {
+        let input = indoc! {"
+            fn zero() -> i32 { 0 }
+            let x: i32 = 42;
+            fn one() -> i32 { 1 }
+        "};
+        let result = parse(input);
+
+        // This should now fail with our new grammar
+        assert!(!has_no_errors(&result));
+        let errors = result.into_errors();
+        assert_yaml_snapshot!(format!("{:?}", errors));
+    }
+
+    #[test]
+    fn test_parse_empty_file_should_pass() {
+        let input = "";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert!(program.functions.is_empty());
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_functions_with_comments_should_pass() {
+        let input = indoc! {"
+            // First function
+            fn zero() -> i32 { 0 }
+            
+            /* Block comment */
+            fn one() -> i32 { 
+                // Comment inside function
+                1 
+            }
+        "};
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_eq!(program.functions.len(), 2);
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_top_level_if_statement_should_fail() {
+        let input = "if true { 42 } else { 0 }";
+        let result = parse(input);
+        
+        // This should now fail with our new grammar
+        assert!(!has_no_errors(&result));
+        let errors = result.into_errors();
+        assert_yaml_snapshot!(format!("{:?}", errors));
     }
 }

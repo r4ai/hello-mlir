@@ -1,0 +1,116 @@
+// 数学関数の実装例
+
+// 絶対値
+fn absolute_value(x: i32) -> i32 {
+    if x < 0 {
+        -x
+    } else {
+        x
+    }
+}
+
+// 符号関数
+fn sign(x: i32) -> i32 {
+    if x > 0 {
+        1
+    } else if x < 0 {
+        -1
+    } else {
+        0
+    }
+}
+
+// 最小値
+fn min(a: i32, b: i32) -> i32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+// 最大値
+fn max(a: i32, b: i32) -> i32 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+// クランプ（値を範囲内に制限）
+fn clamp(value: i32, min_val: i32, max_val: i32) -> i32 {
+    if value < min_val {
+        min_val
+    } else if value > max_val {
+        max_val
+    } else {
+        value
+    }
+}
+
+// 平方根の近似（バビロニア法の1ステップ）
+fn sqrt_approximation(x: i32) -> i32 {
+    if x <= 0 {
+        0
+    } else if x == 1 {
+        1
+    } else {
+        // 初期推定値として x/2 を使用
+        let guess: i32 = x / 2;
+        // 1回の改善ステップ
+        let improved: i32 = (guess + x / guess) / 2;
+        improved
+    }
+}
+
+// 累乗（正の整数のみ）
+fn power(base: i32, exponent: i32) -> i32 {
+    if exponent == 0 {
+        1
+    } else if exponent == 1 {
+        base
+    } else if exponent == 2 {
+        base * base
+    } else if exponent == 3 {
+        base * base * base
+    } else {
+        // 4以上の場合は簡易実装
+        let squared: i32 = base * base;
+        squared * squared
+    }
+}
+
+// 階乗（小さな値のみ）
+fn factorial(n: i32) -> i32 {
+    if n <= 0 {
+        1
+    } else if n == 1 {
+        1
+    } else if n == 2 {
+        2
+    } else if n == 3 {
+        6
+    } else if n == 4 {
+        24
+    } else if n == 5 {
+        120
+    } else {
+        720  // 6! = 720
+    }
+}
+
+// 組み合わせ（nCr）の簡易版
+fn combination(n: i32, r: i32) -> i32 {
+    if r == 0 || r == n {
+        1
+    } else if r == 1 {
+        n
+    } else if n == 4 && r == 2 {
+        6  // 4C2 = 6
+    } else if n == 5 && r == 2 {
+        10 // 5C2 = 10
+    } else {
+        1  // デフォルト値
+    }
+}
