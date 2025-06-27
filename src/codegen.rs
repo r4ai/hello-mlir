@@ -5,8 +5,6 @@ use std::collections::HashMap;
 pub struct CodeGenerator {
     output: String,
     variables: HashMap<String, String>,
-    #[allow(dead_code)]
-    functions: HashMap<String, String>,
     temp_counter: usize,
 }
 
@@ -21,7 +19,6 @@ impl CodeGenerator {
         CodeGenerator {
             output: String::new(),
             variables: HashMap::new(),
-            functions: HashMap::new(),
             temp_counter: 0,
         }
     }
@@ -32,21 +29,25 @@ impl CodeGenerator {
         temp
     }
 
+    fn generate_target_attributes(&self) -> String {
+        "module attributes {\
+            dlti.dl_spec = #dlti.dl_spec<\
+                #dlti.dl_entry<i64, dense<64> : vector<2xi64>>, \
+                #dlti.dl_entry<i32, dense<32> : vector<2xi64>>, \
+                #dlti.dl_entry<i16, dense<16> : vector<2xi64>>, \
+                #dlti.dl_entry<i8, dense<8> : vector<2xi64>>, \
+                #dlti.dl_entry<i1, dense<8> : vector<2xi64>>, \
+                #dlti.dl_entry<f64, dense<64> : vector<2xi64>>, \
+                #dlti.dl_entry<f32, dense<32> : vector<2xi64>>, \
+                #dlti.dl_entry<!llvm.ptr, dense<64> : vector<4xi64>>, \
+                #dlti.dl_entry<\"dlti.endianness\", \"little\">>, \
+            llvm.target_triple = \"x86_64-unknown-linux-gnu\"\
+        } {\n".to_string()
+    }
+
     pub fn generate(&mut self, program: &ast::Program<Type>) -> Result<String> {
         // Add target information for x64
-        self.output.push_str("module attributes {");
-        self.output.push_str("dlti.dl_spec = #dlti.dl_spec<");
-        self.output.push_str("#dlti.dl_entry<i64, dense<64> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<i32, dense<32> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<i16, dense<16> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<i8, dense<8> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<i1, dense<8> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<f64, dense<64> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<f32, dense<32> : vector<2xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<!llvm.ptr, dense<64> : vector<4xi64>>, ");
-        self.output.push_str("#dlti.dl_entry<\"dlti.endianness\", \"little\">>, ");
-        self.output.push_str("llvm.target_triple = \"x86_64-unknown-linux-gnu\"");
-        self.output.push_str("} {\n");
+        self.output.push_str(&self.generate_target_attributes());
 
         // Generate all functions
         for function in &program.functions {
