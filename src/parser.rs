@@ -808,7 +808,7 @@ mod tests {
     fn test_parse_top_level_if_statement_should_fail() {
         let input = "if true { 42 } else { 0 }";
         let result = parse(input);
-        
+
         // This should now fail with our new grammar
         assert!(!has_no_errors(&result));
         let errors = result.into_errors();

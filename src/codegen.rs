@@ -42,7 +42,8 @@ impl CodeGenerator {
                 #dlti.dl_entry<!llvm.ptr, dense<64> : vector<4xi64>>, \
                 #dlti.dl_entry<\"dlti.endianness\", \"little\">>, \
             llvm.target_triple = \"x86_64-unknown-linux-gnu\"\
-        } {\n".to_string()
+        } {\n"
+            .to_string()
     }
 
     pub fn generate(&mut self, program: &ast::Program<Type>) -> Result<String> {
@@ -70,19 +71,21 @@ impl CodeGenerator {
 
     fn generate_function(&mut self, function: &ast::FnDecl<Type>) -> Result<()> {
         let return_type = self.ast_type_to_mlir_type(&function.r#type);
-        
+
         // Generate function signature using LLVM dialect
-        self.output.push_str(&format!("  llvm.func @{}(", function.name));
-        
+        self.output
+            .push_str(&format!("  llvm.func @{}(", function.name));
+
         for (i, param) in function.params.iter().enumerate() {
             if i > 0 {
                 self.output.push_str(", ");
             }
             let param_type = self.ast_type_to_mlir_type(&param.r#type);
             self.output.push_str(&format!("%arg{}: {}", i, param_type));
-            self.variables.insert(param.name.to_string(), format!("%arg{}", i));
+            self.variables
+                .insert(param.name.to_string(), format!("%arg{}", i));
         }
-        
+
         self.output.push_str(&format!(") -> {} {{\n", return_type));
 
         // Generate function body
@@ -93,7 +96,8 @@ impl CodeGenerator {
 
         // Generate return
         if let Some(value) = last_value {
-            self.output.push_str(&format!("    llvm.return {} : {}\n", value, return_type));
+            self.output
+                .push_str(&format!("    llvm.return {} : {}\n", value, return_type));
         } else {
             self.output.push_str("    llvm.return\n");
         }
@@ -130,22 +134,28 @@ impl CodeGenerator {
                 let value = self.generate_expression(expr)?;
                 Ok(Some(value))
             }
-            ast::Stmt::If { condition, then_branch, else_branch, .. } => {
+            ast::Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+                ..
+            } => {
                 let cond_value = self.generate_expression(condition)?;
-                
-                self.output.push_str(&format!("    scf.if {} {{\n", cond_value));
-                
+
+                self.output
+                    .push_str(&format!("    scf.if {} {{\n", cond_value));
+
                 for stmt in then_branch {
                     self.generate_statement(stmt)?;
                 }
-                
+
                 if let Some(else_stmts) = else_branch {
                     self.output.push_str("    } else {\n");
                     for stmt in else_stmts {
                         self.generate_statement(stmt)?;
                     }
                 }
-                
+
                 self.output.push_str("    }\n");
                 Ok(None)
             }
@@ -157,13 +167,19 @@ impl CodeGenerator {
         match expr {
             ast::Expr::IntLit { value, .. } => {
                 let temp = self.next_temp();
-                self.output.push_str(&format!("    {} = llvm.mlir.constant({} : i32) : i32\n", temp, value));
+                self.output.push_str(&format!(
+                    "    {} = llvm.mlir.constant({} : i32) : i32\n",
+                    temp, value
+                ));
                 Ok(temp)
             }
             ast::Expr::BoolLit { value, .. } => {
                 let temp = self.next_temp();
                 let bool_val = if *value { "1" } else { "0" };
-                self.output.push_str(&format!("    {} = llvm.mlir.constant({} : i1) : i1\n", temp, bool_val));
+                self.output.push_str(&format!(
+                    "    {} = llvm.mlir.constant({} : i1) : i1\n",
+                    temp, bool_val
+                ));
                 Ok(temp)
             }
             ast::Expr::BinOp { lhs, op, rhs, .. } => {
@@ -173,40 +189,76 @@ impl CodeGenerator {
 
                 match op {
                     ast::BinOp::Add => {
-                        self.output.push_str(&format!("    {} = llvm.add {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.add {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::Sub => {
-                        self.output.push_str(&format!("    {} = llvm.sub {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.sub {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::Mul => {
-                        self.output.push_str(&format!("    {} = llvm.mul {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.mul {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::Div => {
-                        self.output.push_str(&format!("    {} = llvm.sdiv {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.sdiv {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::Equal => {
-                        self.output.push_str(&format!("    {} = llvm.icmp \"eq\" {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.icmp \"eq\" {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::NotEqual => {
-                        self.output.push_str(&format!("    {} = llvm.icmp \"ne\" {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.icmp \"ne\" {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::LessThan => {
-                        self.output.push_str(&format!("    {} = llvm.icmp \"slt\" {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.icmp \"slt\" {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::LessThanOrEqual => {
-                        self.output.push_str(&format!("    {} = llvm.icmp \"sle\" {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.icmp \"sle\" {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::GreaterThan => {
-                        self.output.push_str(&format!("    {} = llvm.icmp \"sgt\" {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.icmp \"sgt\" {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::GreaterThanOrEqual => {
-                        self.output.push_str(&format!("    {} = llvm.icmp \"sge\" {}, {} : i32\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.icmp \"sge\" {}, {} : i32\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::And => {
-                        self.output.push_str(&format!("    {} = llvm.and {}, {} : i1\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.and {}, {} : i1\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                     ast::BinOp::Or => {
-                        self.output.push_str(&format!("    {} = llvm.or {}, {} : i1\n", temp, lhs_val, rhs_val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.or {}, {} : i1\n",
+                            temp, lhs_val, rhs_val
+                        ));
                     }
                 }
                 Ok(temp)
@@ -218,22 +270,34 @@ impl CodeGenerator {
                 match op {
                     ast::UnaryOp::Neg => {
                         let zero_temp = self.next_temp();
-                        self.output.push_str(&format!("    {} = llvm.mlir.constant(0 : i32) : i32\n", zero_temp));
-                        self.output.push_str(&format!("    {} = llvm.sub {}, {} : i32\n", temp, zero_temp, val));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.mlir.constant(0 : i32) : i32\n",
+                            zero_temp
+                        ));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.sub {}, {} : i32\n",
+                            temp, zero_temp, val
+                        ));
                     }
                     ast::UnaryOp::Not => {
                         let one_temp = self.next_temp();
-                        self.output.push_str(&format!("    {} = llvm.mlir.constant(1 : i1) : i1\n", one_temp));
-                        self.output.push_str(&format!("    {} = llvm.xor {}, {} : i1\n", temp, val, one_temp));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.mlir.constant(1 : i1) : i1\n",
+                            one_temp
+                        ));
+                        self.output.push_str(&format!(
+                            "    {} = llvm.xor {}, {} : i1\n",
+                            temp, val, one_temp
+                        ));
                     }
                 }
                 Ok(temp)
             }
-            ast::Expr::VarRef { name, .. } => {
-                self.variables.get(*name)
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("Variable '{}' not found", name))
-            }
+            ast::Expr::VarRef { name, .. } => self
+                .variables
+                .get(*name)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("Variable '{}' not found", name)),
             ast::Expr::FnCall { name, args, .. } => {
                 let mut arg_values = Vec::new();
                 for arg in args {
@@ -241,7 +305,8 @@ impl CodeGenerator {
                 }
 
                 let temp = self.next_temp();
-                self.output.push_str(&format!("    {} = llvm.call @{}(", temp, name));
+                self.output
+                    .push_str(&format!("    {} = llvm.call @{}(", temp, name));
                 for (i, arg) in arg_values.iter().enumerate() {
                     if i > 0 {
                         self.output.push_str(", ");
@@ -253,7 +318,7 @@ impl CodeGenerator {
                     if i > 0 {
                         self.output.push_str(", ");
                     }
-                    self.output.push_str("i32");  // Simplified - assume all args are i32
+                    self.output.push_str("i32"); // Simplified - assume all args are i32
                 }
                 self.output.push_str(") -> i32\n");
                 Ok(temp)
@@ -266,27 +331,27 @@ impl CodeGenerator {
         let mlir_path = format!("{}.mlir", output_path);
         std::fs::write(&mlir_path, &self.output)?;
         println!("MLIR generated: {}", mlir_path);
-        
+
         // Try to compile to LLVM IR and then to object file
         self.compile_mlir_to_x64(&mlir_path, output_path)?;
-        
+
         Ok(())
     }
-    
+
     fn compile_mlir_to_x64(&self, mlir_path: &str, output_path: &str) -> Result<()> {
         use std::process::Command;
-        
+
         // Check if mlir-translate is available
-        let mlir_translate_check = Command::new("mlir-translate")
-            .arg("--version")
-            .output();
-            
+        let mlir_translate_check = Command::new("mlir-translate").arg("--version").output();
+
         if mlir_translate_check.is_err() {
-            println!("Warning: mlir-translate not found. Install MLIR/LLVM tools for full compilation.");
+            println!(
+                "Warning: mlir-translate not found. Install MLIR/LLVM tools for full compilation."
+            );
             println!("You can still use the generated MLIR code: {}", mlir_path);
             return Ok(());
         }
-        
+
         // Convert to LLVM IR
         let llvm_ir_path = format!("{}.ll", output_path);
         let convert_result = Command::new("mlir-translate")
@@ -295,11 +360,11 @@ impl CodeGenerator {
             .arg("-o")
             .arg(&llvm_ir_path)
             .output();
-            
+
         match convert_result {
             Ok(output) if output.status.success() => {
                 println!("LLVM IR generated: {}", llvm_ir_path);
-                
+
                 // Check if llc is available for object compilation
                 let llc_check = Command::new("llc").arg("--version").output();
                 if llc_check.is_ok() {
@@ -312,11 +377,11 @@ impl CodeGenerator {
                         .arg("-o")
                         .arg(&obj_path)
                         .output();
-                        
+
                     match compile_result {
                         Ok(output) if output.status.success() => {
                             println!("Object file generated: {}", obj_path);
-                            
+
                             // Try to create executable
                             let exe_path = output_path.to_string();
                             let link_result = Command::new("clang")
@@ -324,23 +389,32 @@ impl CodeGenerator {
                                 .arg("-o")
                                 .arg(&exe_path)
                                 .output();
-                                
+
                             match link_result {
                                 Ok(output) if output.status.success() => {
                                     println!("Executable created: {}", exe_path);
                                     println!("Compilation to x64 successful!");
                                 }
                                 _ => {
-                                    println!("Warning: Could not link executable. Object file available: {}", obj_path);
+                                    println!(
+                                        "Warning: Could not link executable. Object file available: {}",
+                                        obj_path
+                                    );
                                 }
                             }
                         }
                         _ => {
-                            println!("Warning: Could not compile to object file. LLVM IR available: {}", llvm_ir_path);
+                            println!(
+                                "Warning: Could not compile to object file. LLVM IR available: {}",
+                                llvm_ir_path
+                            );
                         }
                     }
                 } else {
-                    println!("Warning: llc not found. LLVM IR available: {}", llvm_ir_path);
+                    println!(
+                        "Warning: llc not found. LLVM IR available: {}",
+                        llvm_ir_path
+                    );
                 }
             }
             Ok(output) => {
@@ -351,7 +425,7 @@ impl CodeGenerator {
                 println!("Error running mlir-translate: {}", e);
             }
         }
-        
+
         Ok(())
     }
 }

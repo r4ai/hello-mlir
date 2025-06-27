@@ -70,25 +70,31 @@ fn main() -> Result<()> {
             println!("{ast_yaml}");
         }
         CompileMode::MachineCode => {
-            let typed_program = typechecker::typecheck_and_transform(&program, &file_id).map_err(|err| {
-                Report::build(ReportKind::Error, ((), err.span.to_range()))
-                    .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
-                    .with_code(3)
-                    .with_message(err.to_string())
-                    .with_label(
-                        ariadne::Label::new(((), err.span.to_range()))
-                            .with_message(err.to_string())
-                            .with_color(ariadne::Color::Red),
-                    )
-                    .finish()
-                    .eprint(ariadne::Source::from(&input))
-                    .unwrap();
-                anyhow::anyhow!("Type checking failed")
-            })?;
+            let typed_program =
+                typechecker::typecheck_and_transform(&program, &file_id).map_err(|err| {
+                    Report::build(ReportKind::Error, ((), err.span.to_range()))
+                        .with_config(
+                            ariadne::Config::new().with_index_type(ariadne::IndexType::Byte),
+                        )
+                        .with_code(3)
+                        .with_message(err.to_string())
+                        .with_label(
+                            ariadne::Label::new(((), err.span.to_range()))
+                                .with_message(err.to_string())
+                                .with_color(ariadne::Color::Red),
+                        )
+                        .finish()
+                        .eprint(ariadne::Source::from(&input))
+                        .unwrap();
+                    anyhow::anyhow!("Type checking failed")
+                })?;
 
-            let output_path = args.output.as_ref().map(|p| p.to_string_lossy().to_string());
+            let output_path = args
+                .output
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
             let mlir_code = codegen::generate_code(&typed_program, output_path.as_deref())?;
-            
+
             if args.output.is_none() {
                 println!("{}", mlir_code);
             }
