@@ -28,13 +28,21 @@ jobs:
           install: true
           cache: true
 
+      - name: Install LLVM and Clang (for build and test)
+        if: matrix.task == 'build' || matrix.task == 'test'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-20-dev libclang-20-dev
+
       - name: Run tests
         if: matrix.task == 'test'
         run: cargo test --all-targets
 
       - name: Run clippy
         if: matrix.task == 'clippy'
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets -- -D warnings
 
       - name: Run build
         if: matrix.task == 'build'
