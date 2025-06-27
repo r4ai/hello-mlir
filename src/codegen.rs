@@ -2,12 +2,12 @@ use crate::ast::{self, Type};
 use anyhow::Result;
 use melior::{
     Context,
-    dialect::{arith, func, llvm, DialectRegistry},
+    dialect::{DialectRegistry, arith, func, llvm},
     ir::{
-        attribute::{FlatSymbolRefAttribute, StringAttribute, TypeAttribute},
-        r#type::{FunctionType, IntegerType},
         Block, BlockLike, Location, Module, Region, RegionLike, Value,
+        attribute::{FlatSymbolRefAttribute, StringAttribute, TypeAttribute},
         operation::OperationLike,
+        r#type::{FunctionType, IntegerType},
     },
     pass::{PassManager, conversion},
     utility::register_all_dialects,
@@ -21,12 +21,11 @@ pub struct CodeGenerator<'c> {
     variables: HashMap<String, Value<'c, 'c>>,
 }
 
-
 impl<'c> CodeGenerator<'c> {
     pub fn new(context: &'c Context) -> Self {
         let location = Location::unknown(context);
         let module = Module::new(location);
-        
+
         CodeGenerator {
             context,
             module,
@@ -34,7 +33,6 @@ impl<'c> CodeGenerator<'c> {
             variables: HashMap::new(),
         }
     }
-
 
     pub fn generate(&mut self, program: &ast::Program<Type>) -> Result<String> {
         // Generate all functions
@@ -65,7 +63,7 @@ impl<'c> CodeGenerator<'c> {
 
     fn generate_function(&mut self, function: &ast::FnDecl<Type>) -> Result<()> {
         let return_type = self.ast_type_to_mlir_type(&function.r#type)?;
-        
+
         // Collect parameter types
         let mut param_types = Vec::new();
         for param in &function.params {
@@ -82,8 +80,13 @@ impl<'c> CodeGenerator<'c> {
             TypeAttribute::new(function_type.into()),
             {
                 // Create entry block with parameters
-                let block = Block::new(&param_types.iter().map(|t| (*t, self.location)).collect::<Vec<_>>());
-                
+                let block = Block::new(
+                    &param_types
+                        .iter()
+                        .map(|t| (*t, self.location))
+                        .collect::<Vec<_>>(),
+                );
+
                 // Store parameter values in variables map
                 for (i, param) in function.params.iter().enumerate() {
                     let arg_value = block.argument(i).unwrap().into();
@@ -115,7 +118,11 @@ impl<'c> CodeGenerator<'c> {
         Ok(())
     }
 
-    fn generate_statement(&mut self, block: &Block<'c>, stmt: &ast::Stmt<Type>) -> Result<Option<Value<'c, 'c>>> {
+    fn generate_statement(
+        &mut self,
+        block: &Block<'c>,
+        stmt: &ast::Stmt<Type>,
+    ) -> Result<Option<Value<'c, 'c>>> {
         match stmt {
             ast::Stmt::LetDecl { name, value, .. } | ast::Stmt::VarDecl { name, value, .. } => {
                 if let Some(expr) = value {
@@ -150,7 +157,7 @@ impl<'c> CodeGenerator<'c> {
                 ..
             } => {
                 let _cond_value = self.generate_expression(block, condition)?;
-                
+
                 // TODO: Implement SCF if operation properly
                 // For now, generate the condition and return None
                 Ok(None)
@@ -159,12 +166,20 @@ impl<'c> CodeGenerator<'c> {
         }
     }
 
-    fn generate_expression(&mut self, block: &Block<'c>, expr: &ast::Expr) -> Result<Value<'c, 'c>> {
+    fn generate_expression(
+        &mut self,
+        block: &Block<'c>,
+        expr: &ast::Expr,
+    ) -> Result<Value<'c, 'c>> {
         match expr {
             ast::Expr::IntLit { value, .. } => {
                 let const_op = block.append_operation(arith::constant(
                     self.context,
-                    melior::ir::attribute::IntegerAttribute::new(IntegerType::new(self.context, 32).into(), *value as i64).into(),
+                    melior::ir::attribute::IntegerAttribute::new(
+                        IntegerType::new(self.context, 32).into(),
+                        *value as i64,
+                    )
+                    .into(),
                     self.location,
                 ));
                 Ok(const_op.result(0)?.into())
@@ -173,7 +188,11 @@ impl<'c> CodeGenerator<'c> {
                 let bool_val = if *value { 1 } else { 0 };
                 let const_op = block.append_operation(arith::constant(
                     self.context,
-                    melior::ir::attribute::IntegerAttribute::new(IntegerType::new(self.context, 1).into(), bool_val).into(),
+                    melior::ir::attribute::IntegerAttribute::new(
+                        IntegerType::new(self.context, 1).into(),
+                        bool_val,
+                    )
+                    .into(),
                     self.location,
                 ));
                 Ok(const_op.result(0)?.into())
@@ -195,60 +214,48 @@ impl<'c> CodeGenerator<'c> {
                     ast::BinOp::Div => {
                         block.append_operation(arith::divsi(lhs_val, rhs_val, self.location))
                     }
-                    ast::BinOp::Equal => {
-                        block.append_operation(arith::cmpi(
-                            self.context,
-                            arith::CmpiPredicate::Eq,
-                            lhs_val,
-                            rhs_val,
-                            self.location,
-                        ))
-                    }
-                    ast::BinOp::NotEqual => {
-                        block.append_operation(arith::cmpi(
-                            self.context,
-                            arith::CmpiPredicate::Ne,
-                            lhs_val,
-                            rhs_val,
-                            self.location,
-                        ))
-                    }
-                    ast::BinOp::LessThan => {
-                        block.append_operation(arith::cmpi(
-                            self.context,
-                            arith::CmpiPredicate::Slt,
-                            lhs_val,
-                            rhs_val,
-                            self.location,
-                        ))
-                    }
-                    ast::BinOp::LessThanOrEqual => {
-                        block.append_operation(arith::cmpi(
-                            self.context,
-                            arith::CmpiPredicate::Sle,
-                            lhs_val,
-                            rhs_val,
-                            self.location,
-                        ))
-                    }
-                    ast::BinOp::GreaterThan => {
-                        block.append_operation(arith::cmpi(
-                            self.context,
-                            arith::CmpiPredicate::Sgt,
-                            lhs_val,
-                            rhs_val,
-                            self.location,
-                        ))
-                    }
-                    ast::BinOp::GreaterThanOrEqual => {
-                        block.append_operation(arith::cmpi(
-                            self.context,
-                            arith::CmpiPredicate::Sge,
-                            lhs_val,
-                            rhs_val,
-                            self.location,
-                        ))
-                    }
+                    ast::BinOp::Equal => block.append_operation(arith::cmpi(
+                        self.context,
+                        arith::CmpiPredicate::Eq,
+                        lhs_val,
+                        rhs_val,
+                        self.location,
+                    )),
+                    ast::BinOp::NotEqual => block.append_operation(arith::cmpi(
+                        self.context,
+                        arith::CmpiPredicate::Ne,
+                        lhs_val,
+                        rhs_val,
+                        self.location,
+                    )),
+                    ast::BinOp::LessThan => block.append_operation(arith::cmpi(
+                        self.context,
+                        arith::CmpiPredicate::Slt,
+                        lhs_val,
+                        rhs_val,
+                        self.location,
+                    )),
+                    ast::BinOp::LessThanOrEqual => block.append_operation(arith::cmpi(
+                        self.context,
+                        arith::CmpiPredicate::Sle,
+                        lhs_val,
+                        rhs_val,
+                        self.location,
+                    )),
+                    ast::BinOp::GreaterThan => block.append_operation(arith::cmpi(
+                        self.context,
+                        arith::CmpiPredicate::Sgt,
+                        lhs_val,
+                        rhs_val,
+                        self.location,
+                    )),
+                    ast::BinOp::GreaterThanOrEqual => block.append_operation(arith::cmpi(
+                        self.context,
+                        arith::CmpiPredicate::Sge,
+                        lhs_val,
+                        rhs_val,
+                        self.location,
+                    )),
                     ast::BinOp::And => {
                         block.append_operation(arith::andi(lhs_val, rhs_val, self.location))
                     }
@@ -265,21 +272,31 @@ impl<'c> CodeGenerator<'c> {
                     ast::UnaryOp::Neg => {
                         let zero_op = block.append_operation(arith::constant(
                             self.context,
-                            melior::ir::attribute::IntegerAttribute::new(IntegerType::new(self.context, 32).into(), 0).into(),
+                            melior::ir::attribute::IntegerAttribute::new(
+                                IntegerType::new(self.context, 32).into(),
+                                0,
+                            )
+                            .into(),
                             self.location,
                         ));
                         let zero_val = zero_op.result(0)?.into();
-                        let neg_op = block.append_operation(arith::subi(zero_val, val, self.location));
+                        let neg_op =
+                            block.append_operation(arith::subi(zero_val, val, self.location));
                         Ok(neg_op.result(0)?.into())
                     }
                     ast::UnaryOp::Not => {
                         let one_op = block.append_operation(arith::constant(
                             self.context,
-                            melior::ir::attribute::IntegerAttribute::new(IntegerType::new(self.context, 1).into(), 1).into(),
+                            melior::ir::attribute::IntegerAttribute::new(
+                                IntegerType::new(self.context, 1).into(),
+                                1,
+                            )
+                            .into(),
                             self.location,
                         ));
                         let one_val = one_op.result(0)?.into();
-                        let not_op = block.append_operation(arith::xori(val, one_val, self.location));
+                        let not_op =
+                            block.append_operation(arith::xori(val, one_val, self.location));
                         Ok(not_op.result(0)?.into())
                     }
                 }
@@ -310,14 +327,14 @@ impl<'c> CodeGenerator<'c> {
     pub fn compile_to_object(&mut self, output_path: &str) -> Result<()> {
         // Create a pass manager to convert dialects
         let pass_manager = PassManager::new(self.context);
-        
+
         // Add conversion passes from arith/func to LLVM
         pass_manager.add_pass(conversion::create_arith_to_llvm());
         pass_manager.add_pass(conversion::create_func_to_llvm());
-        
+
         // Enable verifier
         pass_manager.enable_verifier(true);
-        
+
         // Run passes on the module
         if pass_manager.run(&mut self.module).is_err() {
             return Err(anyhow::anyhow!("Failed to run conversion passes"));
@@ -331,7 +348,7 @@ impl<'c> CodeGenerator<'c> {
 
         // Try to compile to LLVM IR and then to object file
         self.compile_mlir_to_x64(&mlir_path, output_path)?;
-        
+
         Ok(())
     }
 
@@ -431,11 +448,11 @@ pub fn generate_code(program: &ast::Program<Type>, output_path: Option<&str>) ->
     // Create MLIR context and register dialects
     let registry = DialectRegistry::new();
     register_all_dialects(&registry);
-    
+
     let context = Context::new();
     context.append_dialect_registry(&registry);
     context.load_all_available_dialects();
-    
+
     // Generate code
     let mut codegen = CodeGenerator::new(&context);
     let mlir_code = codegen.generate(program)?;
@@ -463,7 +480,7 @@ mod tests {
     fn create_test_context() -> Context {
         let registry = DialectRegistry::new();
         register_all_dialects(&registry);
-        
+
         let context = Context::new();
         context.append_dialect_registry(&registry);
         context.load_all_available_dialects();
@@ -675,7 +692,7 @@ mod tests {
         // Test that type conversion works
         let result = codegen.ast_type_to_mlir_type(&Type::I32);
         assert!(result.is_ok());
-        
+
         let result = codegen.ast_type_to_mlir_type(&Type::Bool);
         assert!(result.is_ok());
     }
