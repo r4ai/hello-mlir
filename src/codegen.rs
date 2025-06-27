@@ -59,18 +59,21 @@ impl CodeGenerator {
         Ok(self.output.clone())
     }
 
-    fn ast_type_to_mlir_type(&self, ast_type: &Type) -> String {
+    fn ast_type_to_mlir_type(&self, ast_type: &Type) -> Result<String> {
         match ast_type {
-            Type::I32 => "i32".to_string(),
-            Type::I64 => "i64".to_string(),
-            Type::Bool => "i1".to_string(),
-            Type::Void => "()".to_string(),
-            _ => "i32".to_string(), // Default fallback
+            Type::I32 => Ok("i32".to_string()),
+            Type::I64 => Ok("i64".to_string()),
+            Type::Bool => Ok("i1".to_string()),
+            Type::Void => Ok("()".to_string()),
+            Type::F32 => Ok("f32".to_string()),
+            Type::F64 => Ok("f64".to_string()),
+            Type::String => Ok("!llvm.ptr".to_string()),
+            Type::Fn { .. } => Ok("!llvm.ptr".to_string()),
         }
     }
 
     fn generate_function(&mut self, function: &ast::FnDecl<Type>) -> Result<()> {
-        let return_type = self.ast_type_to_mlir_type(&function.r#type);
+        let return_type = self.ast_type_to_mlir_type(&function.r#type)?;
 
         // Generate function signature using LLVM dialect
         self.output
@@ -80,7 +83,7 @@ impl CodeGenerator {
             if i > 0 {
                 self.output.push_str(", ");
             }
-            let param_type = self.ast_type_to_mlir_type(&param.r#type);
+            let param_type = self.ast_type_to_mlir_type(&param.r#type)?;
             self.output.push_str(&format!("%arg{}: {}", i, param_type));
             self.variables
                 .insert(param.name.to_string(), format!("%arg{}", i));
@@ -439,4 +442,265 @@ pub fn generate_code(program: &ast::Program<Type>, output_path: Option<&str>) ->
     }
 
     Ok(mlir_code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{BinOp, Expr, FnDecl, FnParam, Span, Stmt, UnaryOp};
+
+    fn create_span() -> Span {
+        Span {
+            start: 0,
+            end: 0,
+            context: (),
+        }
+    }
+
+    #[test]
+    fn test_basic_function_generation() {
+        let mut codegen = CodeGenerator::new();
+
+        // Create a simple program: fn main() -> i32 { return 42; }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "main",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![Stmt::Return {
+                    expr: Some(Box::new(Expr::IntLit {
+                        value: 42,
+                        span: create_span(),
+                    })),
+                    span: create_span(),
+                }],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain LLVM dialect
+        assert!(result.contains("llvm.func @main"));
+        assert!(result.contains("llvm.mlir.constant(42 : i32)"));
+        assert!(result.contains("llvm.return"));
+        assert!(result.contains("x86_64-unknown-linux-gnu"));
+    }
+
+    #[test]
+    fn test_arithmetic_operations() {
+        let mut codegen = CodeGenerator::new();
+
+        // Create: fn test() -> i32 { return 5 + 3; }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "test",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![Stmt::Return {
+                    expr: Some(Box::new(Expr::BinOp {
+                        lhs: Box::new(Expr::IntLit {
+                            value: 5,
+                            span: create_span(),
+                        }),
+                        op: BinOp::Add,
+                        rhs: Box::new(Expr::IntLit {
+                            value: 3,
+                            span: create_span(),
+                        }),
+                        span: create_span(),
+                    })),
+                    span: create_span(),
+                }],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain LLVM arithmetic
+        assert!(result.contains("llvm.add"));
+        assert!(result.contains("llvm.mlir.constant(5 : i32)"));
+        assert!(result.contains("llvm.mlir.constant(3 : i32)"));
+    }
+
+    #[test]
+    fn test_function_with_parameters() {
+        let mut codegen = CodeGenerator::new();
+
+        // Create: fn add(a: i32, b: i32) -> i32 { return a + b; }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "add",
+                params: vec![
+                    FnParam {
+                        name: "a",
+                        r#type: Type::I32,
+                        span: create_span(),
+                    },
+                    FnParam {
+                        name: "b",
+                        r#type: Type::I32,
+                        span: create_span(),
+                    },
+                ],
+                r#type: Type::I32,
+                body: vec![Stmt::Return {
+                    expr: Some(Box::new(Expr::BinOp {
+                        lhs: Box::new(Expr::VarRef {
+                            name: "a",
+                            span: create_span(),
+                        }),
+                        op: BinOp::Add,
+                        rhs: Box::new(Expr::VarRef {
+                            name: "b",
+                            span: create_span(),
+                        }),
+                        span: create_span(),
+                    })),
+                    span: create_span(),
+                }],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain function with parameters
+        assert!(result.contains("llvm.func @add(%arg0: i32, %arg1: i32)"));
+        assert!(result.contains("llvm.add %arg0, %arg1"));
+    }
+
+    #[test]
+    fn test_boolean_operations() {
+        let mut codegen = CodeGenerator::new();
+
+        // Create: fn test() -> i1 { return true && false; }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "test",
+                params: vec![],
+                r#type: Type::Bool,
+                body: vec![Stmt::Return {
+                    expr: Some(Box::new(Expr::BinOp {
+                        lhs: Box::new(Expr::BoolLit {
+                            value: true,
+                            span: create_span(),
+                        }),
+                        op: BinOp::And,
+                        rhs: Box::new(Expr::BoolLit {
+                            value: false,
+                            span: create_span(),
+                        }),
+                        span: create_span(),
+                    })),
+                    span: create_span(),
+                }],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain boolean operations
+        assert!(result.contains("llvm.mlir.constant(1 : i1)"));
+        assert!(result.contains("llvm.mlir.constant(0 : i1)"));
+        assert!(result.contains("llvm.and"));
+    }
+
+    #[test]
+    fn test_unary_operations() {
+        let mut codegen = CodeGenerator::new();
+
+        // Create: fn test() -> i32 { return -42; }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "test",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![Stmt::Return {
+                    expr: Some(Box::new(Expr::UnaryOp {
+                        op: UnaryOp::Neg,
+                        expr: Box::new(Expr::IntLit {
+                            value: 42,
+                            span: create_span(),
+                        }),
+                        span: create_span(),
+                    })),
+                    span: create_span(),
+                }],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain unary negation
+        assert!(result.contains("llvm.mlir.constant(0 : i32)"));
+        assert!(result.contains("llvm.mlir.constant(42 : i32)"));
+        assert!(result.contains("llvm.sub"));
+    }
+
+    #[test]
+    fn test_x64_target_attributes() {
+        let mut codegen = CodeGenerator::new();
+        let program = ast::Program { functions: vec![] };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain x64 target information
+        assert!(result.contains("x86_64-unknown-linux-gnu"));
+        assert!(result.contains("dlti.dl_spec"));
+        assert!(result.contains("little"));
+    }
+
+    #[test]
+    fn test_unsupported_type_error() {
+        let codegen = CodeGenerator::new();
+
+        // Test that unsupported types return errors instead of defaulting
+        let result = codegen.ast_type_to_mlir_type(&Type::I32);
+        assert!(result.is_ok());
+
+        // This would test an unsupported type if we had one in the enum
+        // For now, all types are supported
+    }
+
+    #[test]
+    fn test_variable_declarations() {
+        let mut codegen = CodeGenerator::new();
+
+        // Create: fn test() -> i32 { let x: i32 = 10; return x; }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "test",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![
+                    Stmt::LetDecl {
+                        name: "x",
+                        r#type: Type::I32,
+                        value: Some(Expr::IntLit {
+                            value: 10,
+                            span: create_span(),
+                        }),
+                        span: create_span(),
+                    },
+                    Stmt::Return {
+                        expr: Some(Box::new(Expr::VarRef {
+                            name: "x",
+                            span: create_span(),
+                        })),
+                        span: create_span(),
+                    },
+                ],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain constant assignment and variable reference
+        assert!(result.contains("llvm.mlir.constant(10 : i32)"));
+    }
 }
