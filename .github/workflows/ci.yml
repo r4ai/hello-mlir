@@ -28,10 +28,16 @@ jobs:
           install: true
           cache: true
 
+      - name: Add LLVM APT repository
+        if: matrix.task == 'build' || matrix.task == 'test'
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
+          sudo apt-get update
+
       - name: Install LLVM and Clang (for build and test)
         if: matrix.task == 'build' || matrix.task == 'test'
         run: |
-          sudo apt-get update
           sudo apt-get install -y llvm-20-dev libclang-20-dev
 
       - name: Run tests
