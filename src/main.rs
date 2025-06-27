@@ -70,7 +70,7 @@ fn main() -> Result<()> {
             println!("{ast_yaml}");
         }
         CompileMode::MachineCode => {
-            typechecker::typecheck(&program, &file_id).map_err(|err| {
+            let typed_program = typechecker::typecheck_and_transform(&program, &file_id).map_err(|err| {
                 Report::build(ReportKind::Error, ((), err.span.to_range()))
                     .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
                     .with_code(3)
@@ -86,7 +86,12 @@ fn main() -> Result<()> {
                 anyhow::anyhow!("Type checking failed")
             })?;
 
-            todo!("Machine code generation is not implemented yet");
+            let output_path = args.output.as_ref().map(|p| p.to_string_lossy().to_string());
+            let mlir_code = codegen::generate_code(&typed_program, output_path.as_deref())?;
+            
+            if args.output.is_none() {
+                println!("{}", mlir_code);
+            }
         }
     }
 

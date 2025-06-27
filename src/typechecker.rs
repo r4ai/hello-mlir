@@ -615,12 +615,185 @@ impl<'a> TypeChecker<'a> {
         }
         Ok(())
     }
+
+    pub fn typecheck_and_transform_program(&mut self, program: &ast::Program<'a>) -> Result<ast::Program<'a, ast::Type<'a>>, TypeError<'a>> {
+        // First pass: validate types
+        self.typecheck_program(program)?;
+
+        // Second pass: transform to typed AST
+        let mut typed_functions = Vec::new();
+        
+        for function in &program.functions {
+            let typed_function = self.transform_function(function)?;
+            typed_functions.push(typed_function);
+        }
+
+        Ok(ast::Program {
+            functions: typed_functions,
+        })
+    }
+
+    fn transform_function(&mut self, function: &ast::FnDecl<'a>) -> Result<ast::FnDecl<'a, ast::Type<'a>>, TypeError<'a>> {
+        let return_type = function.r#type.clone().ok_or_else(|| TypeError {
+            kind: TypeErrorKind::AnnotationNotFound {
+                message: "Function return type annotation is required".to_string(),
+            },
+            file_id: self.file_id,
+            span: function.span.clone(),
+        })?;
+
+        let typed_params: Result<Vec<_>, _> = function.params.iter().map(|param| {
+            let param_type = param.r#type.clone().ok_or_else(|| TypeError {
+                kind: TypeErrorKind::AnnotationNotFound {
+                    message: "Parameter type annotation is required".to_string(),
+                },
+                file_id: self.file_id,
+                span: param.span.clone(),
+            })?;
+            Ok(ast::FnParam {
+                name: param.name,
+                r#type: param_type,
+                span: param.span.clone(),
+            })
+        }).collect();
+        let typed_params = typed_params?;
+
+        // Set up function scope for body transformation
+        self.env.push_scope();
+        
+        // Declare parameters
+        for param in &typed_params {
+            self.env.declare_var(param.name, param.r#type.clone(), param.span.clone())?;
+        }
+
+        let typed_body: Result<Vec<_>, _> = function.body.iter().map(|stmt| {
+            self.transform_statement(stmt)
+        }).collect();
+        let typed_body = typed_body?;
+
+        self.env.pop_scope();
+
+        Ok(ast::FnDecl {
+            name: function.name,
+            params: typed_params,
+            r#type: return_type,
+            body: typed_body,
+            span: function.span.clone(),
+        })
+    }
+
+    fn transform_statement(&mut self, stmt: &ast::Stmt<'a>) -> Result<ast::Stmt<'a, ast::Type<'a>>, TypeError<'a>> {
+        match stmt {
+            ast::Stmt::LetDecl { name, r#type, value, span } => {
+                let var_type = if let Some(value) = value {
+                    self.typecheck_expr(value)?
+                } else {
+                    r#type.clone().ok_or_else(|| TypeError {
+                        kind: TypeErrorKind::AnnotationNotFound {
+                            message: "Variable type annotation is required".to_string(),
+                        },
+                        file_id: self.file_id,
+                        span: span.clone(),
+                    })?
+                };
+                
+                self.env.declare_var(name, var_type.clone(), span.clone())?;
+                
+                Ok(ast::Stmt::LetDecl {
+                    name,
+                    r#type: var_type,
+                    value: value.clone(),
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::VarDecl { name, r#type, value, span } => {
+                let var_type = if let Some(value) = value {
+                    self.typecheck_expr(value)?
+                } else {
+                    r#type.clone().ok_or_else(|| TypeError {
+                        kind: TypeErrorKind::AnnotationNotFound {
+                            message: "Variable type annotation is required".to_string(),
+                        },
+                        file_id: self.file_id,
+                        span: span.clone(),
+                    })?
+                };
+                
+                self.env.declare_var(name, var_type.clone(), span.clone())?;
+                
+                Ok(ast::Stmt::VarDecl {
+                    name,
+                    r#type: var_type,
+                    value: value.clone(),
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::Assign { name, value, span } => {
+                Ok(ast::Stmt::Assign {
+                    name,
+                    value: value.clone(),
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::If { condition, then_branch, else_branch, span } => {
+                let typed_then: Result<Vec<_>, _> = then_branch.iter().map(|s| self.transform_statement(s)).collect();
+                let typed_then = typed_then?;
+                
+                let typed_else = if let Some(else_stmts) = else_branch {
+                    let typed_else: Result<Vec<_>, _> = else_stmts.iter().map(|s| self.transform_statement(s)).collect();
+                    Some(typed_else?)
+                } else {
+                    None
+                };
+                
+                Ok(ast::Stmt::If {
+                    condition: condition.clone(),
+                    then_branch: typed_then,
+                    else_branch: typed_else,
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::Return { expr, span } => {
+                Ok(ast::Stmt::Return {
+                    expr: expr.clone(),
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::ExprStmt { expr, span } => {
+                Ok(ast::Stmt::ExprStmt {
+                    expr: expr.clone(),
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::Expr { expr, span } => {
+                Ok(ast::Stmt::Expr {
+                    expr: expr.clone(),
+                    span: span.clone(),
+                })
+            }
+            ast::Stmt::FnDecl { .. } => {
+                Err(TypeError {
+                    kind: TypeErrorKind::InternalError {
+                        message: "Nested function declarations are not supported".to_string(),
+                    },
+                    file_id: self.file_id,
+                    span: ast::Span { start: 0, end: 0, context: () },
+                })
+            }
+        }
+    }
 }
 
+#[allow(dead_code)]
 pub fn typecheck<'a>(program: &ast::Program<'a>, file_id: &'a str) -> Result<(), TypeError<'a>> {
     let mut type_checker = TypeChecker::new(file_id);
     type_checker.typecheck_program(program)?;
     Ok(())
+}
+
+pub fn typecheck_and_transform<'a>(program: &ast::Program<'a>, file_id: &'a str) -> Result<ast::Program<'a, ast::Type<'a>>, TypeError<'a>> {
+    let mut type_checker = TypeChecker::new(file_id);
+    type_checker.typecheck_and_transform_program(program)
 }
 
 #[cfg(test)]
