@@ -37,6 +37,10 @@ jobs:
       - name: Install LLVM and Clang
         run: |
           sudo apt-get install -y llvm-20-dev libclang-20-dev
+          llvm-config-20 --version
+          which llvm-config-20
+          llvm-config --version
+          which llvm-config
 
       - name: Run tests
         if: matrix.task == 'test'
