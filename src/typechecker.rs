@@ -244,10 +244,10 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    pub fn typecheck_expr(
-        &self,
-        expr: &ast::Expr<'a>,
-    ) -> Result<(ast::Type<'a>, ast::Expr<'a, ast::Type>), TypeError<'a>> {
+    pub fn typecheck_expr<'b>(
+        &mut self,
+        expr: &'b ast::Expr<'a>,
+    ) -> Result<(ast::Type<'a>, ast::Expr<'a, ast::Type<'a>>), TypeError<'a>> {
         match expr {
             ast::Expr::IntLit {
                 span,
@@ -438,43 +438,48 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             ast::Expr::FnCall { name, args, span } => {
-                let fn_to_call = self.env.lookup_fn(name, span.clone())?;
-                match &fn_to_call.r#type {
-                    ast::Type::Fn {
-                        return_type,
-                        params,
-                    } => {
-                        let args = args
-                            .iter()
-                            .map(|arg| self.typecheck_expr(arg))
-                            .collect::<Result<Vec<_>, _>>()?;
-
-                        for ((arg_type, _), param) in args.iter().zip(params) {
-                            assert_equal(
-                                arg_type.clone(),
-                                param.r#type.clone(),
-                                self.file_id,
-                                param.span.clone(),
-                            )?;
-                        }
-
-                        Ok((
-                            *return_type.clone(),
-                            ast::Expr::FnCall {
-                                name: *name,
-                                args: args.into_iter().map(|(_, arg)| arg).collect(),
+                let (return_type, params) = {
+                    let fn_to_call = self.env.lookup_fn(name, span.clone())?;
+                    match &fn_to_call.r#type {
+                        ast::Type::Fn {
+                            return_type,
+                            params,
+                        } => (*return_type.clone(), params.clone()),
+                        _ => {
+                            return Err(TypeError {
+                                kind: TypeErrorKind::InvalidFunctionCall {
+                                    message: format!("{} is not a function", name),
+                                },
+                                file_id: self.file_id,
                                 span: span.clone(),
-                            },
-                        ))
+                            });
+                        }
                     }
-                    _ => Err(TypeError {
-                        kind: TypeErrorKind::InvalidFunctionCall {
-                            message: format!("{} is not a function", name),
-                        },
-                        file_id: self.file_id,
-                        span: span.clone(),
-                    }),
+                };
+
+                let mut typed_args = Vec::new();
+                for arg in args {
+                    let (arg_type, typed_arg) = self.typecheck_expr(arg)?;
+                    typed_args.push((arg_type, typed_arg));
                 }
+
+                for ((arg_type, _), param) in typed_args.iter().zip(params.iter()) {
+                    assert_equal(
+                        arg_type.clone(),
+                        param.r#type.clone(),
+                        self.file_id,
+                        param.span.clone(),
+                    )?;
+                }
+
+                Ok((
+                    return_type,
+                    ast::Expr::FnCall {
+                        name: *name,
+                        args: typed_args.into_iter().map(|(_, arg)| arg).collect(),
+                        span: span.clone(),
+                    },
+                ))
             }
             ast::Expr::VarRef { name, span } => {
                 let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
@@ -489,9 +494,9 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    pub fn typecheck_stmt(
-        &'a mut self,
-        stmt: &ast::Stmt<'a>,
+    pub fn typecheck_stmt<'b>(
+        &mut self,
+        stmt: &'b ast::Stmt<'a>,
     ) -> Result<(Option<ast::Type<'a>>, ast::Stmt<'a, ast::Type<'a>>), TypeError<'a>> {
         match stmt {
             ast::Stmt::FnDecl {
@@ -538,7 +543,7 @@ impl<'a> TypeChecker<'a> {
                     self.env.push_scope();
 
                     // Declare parameters in the new scope
-                    for param in params {
+                    for param in &params {
                         self.env.declare_var(
                             param.name,
                             param.r#type.clone(),
@@ -547,10 +552,10 @@ impl<'a> TypeChecker<'a> {
                     }
 
                     // Typecheck the function body
-                    let typed_body = body
-                        .iter()
-                        .map(|stmt| self.typecheck_stmt(stmt))
-                        .collect::<Result<Vec<_>, _>>()?;
+                    let mut typed_body = Vec::new();
+                    for stmt in body {
+                        typed_body.push(self.typecheck_stmt(stmt)?);
+                    }
 
                     let actual_return_type = typed_body
                         .iter()
@@ -604,11 +609,13 @@ impl<'a> TypeChecker<'a> {
                         span.clone(),
                     )?;
                 }
+                let var_type = r#type.clone().unwrap_or(actual_value_type);
+                self.env.declare_var(name, var_type.clone(), span.clone())?;
                 Ok((
                     None,
                     ast::Stmt::LetDecl {
                         name: *name,
-                        r#type: r#type.unwrap_or_else(|| actual_value_type.clone()),
+                        r#type: var_type,
                         value: typed_value,
                         span: span.clone(),
                     },
@@ -645,9 +652,9 @@ impl<'a> TypeChecker<'a> {
                     )?;
                 }
 
-                let var_type = r#type.unwrap_or(actual_value_type);
+                let var_type = r#type.clone().unwrap_or(actual_value_type);
 
-                self.env.declare_var(name, var_type, span.clone())?;
+                self.env.declare_var(name, var_type.clone(), span.clone())?;
                 Ok((
                     None,
                     ast::Stmt::VarDecl {
@@ -659,14 +666,12 @@ impl<'a> TypeChecker<'a> {
                 ))
             }
             ast::Stmt::Assign { name, value, span } => {
-                let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
+                let var_type = {
+                    let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
+                    var.r#type.clone()
+                };
                 let (actual_value_type, typed_value) = self.typecheck_expr(value)?;
-                assert_equal(
-                    var.r#type.clone(),
-                    actual_value_type,
-                    self.file_id,
-                    span.clone(),
-                )?;
+                assert_equal(var_type, actual_value_type, self.file_id, span.clone())?;
                 Ok((
                     None,
                     ast::Stmt::Assign {
@@ -690,27 +695,22 @@ impl<'a> TypeChecker<'a> {
                     span.clone(),
                 )?;
 
-                // Push a new scope for the then branch
                 self.env.push_scope();
-                let typed_then_branch = then_branch
-                    .iter()
-                    .map(|stmt| self.typecheck_stmt(stmt))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .map(|(_, stmt)| stmt)
-                    .collect::<Vec<_>>();
+                let mut typed_then_branch = Vec::new();
+                for stmt in then_branch {
+                    let (_, typed_stmt) = self.typecheck_stmt(stmt)?;
+                    typed_then_branch.push(typed_stmt);
+                }
                 self.env.pop_scope();
 
                 let typed_else_branch = if let Some(else_branch) = else_branch {
                     // Push a new scope for the else branch
                     self.env.push_scope();
-                    let typed_else_branch = else_branch
-                        .iter()
-                        .map(|stmt| self.typecheck_stmt(stmt))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .map(|(_, stmt)| stmt)
-                        .collect::<Vec<_>>();
+                    let mut typed_else_branch = Vec::new();
+                    for stmt in else_branch {
+                        let (_, typed_stmt) = self.typecheck_stmt(stmt)?;
+                        typed_else_branch.push(typed_stmt);
+                    }
                     self.env.pop_scope();
                     Some(typed_else_branch)
                 } else {
@@ -770,9 +770,14 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    pub fn typecheck_program(&mut self, program: &ast::Program<'a>) -> Result<(), TypeError<'a>> {
+    pub fn typecheck_program<'b>(
+        &mut self,
+        program: &'b ast::Program<'a>,
+    ) -> Result<ast::Program<'a, ast::Type<'a>>, TypeError<'a>> {
+        let mut typed_functions = Vec::new();
         for function in &program.functions {
             // Convert FnDecl to Stmt::FnDecl for processing
+            // TODO: Improve this by directly typechecking FnDecl
             let stmt = ast::Stmt::FnDecl {
                 name: function.name,
                 params: function.params.clone(),
@@ -780,9 +785,38 @@ impl<'a> TypeChecker<'a> {
                 body: function.body.clone(),
                 span: function.span.clone(),
             };
-            self.typecheck_stmt(&stmt)?;
+            let (_, typed_stmt) = self.typecheck_stmt(&stmt)?;
+            match typed_stmt {
+                ast::Stmt::FnDecl {
+                    name,
+                    params,
+                    r#type,
+                    body,
+                    span,
+                } => {
+                    typed_functions.push(ast::FnDecl {
+                        name,
+                        params,
+                        r#type,
+                        body,
+                        span,
+                    });
+                }
+                _ => {
+                    // Never expected this to happen, as we only process function declarations
+                    return Err(TypeError {
+                        kind: TypeErrorKind::InternalError {
+                            message: "Expected a function declaration".to_string(),
+                        },
+                        file_id: self.file_id,
+                        span: function.span.clone(),
+                    });
+                }
+            }
         }
-        Ok(())
+        Ok(ast::Program {
+            functions: typed_functions,
+        })
     }
 }
 
@@ -792,8 +826,7 @@ pub fn typecheck<'a>(
     file_id: &'a str,
 ) -> Result<ast::Program<'a, ast::Type<'a>>, TypeError<'a>> {
     let mut type_checker = TypeChecker::new(file_id);
-    type_checker.typecheck_program(program)?;
-    Ok(())
+    type_checker.typecheck_program(program)
 }
 
 #[cfg(test)]
@@ -802,7 +835,7 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use crate::{
-        parser,
+        ast, parser,
         typechecker::{self, TypeError},
     };
 
@@ -810,7 +843,7 @@ mod tests {
         result.errors().len() == 0
     }
 
-    fn typecheck(source: &str) -> Result<(), TypeError> {
+    fn typecheck(source: &str) -> Result<ast::Program<ast::Type>, TypeError> {
         let parse_result = parser::parse(source);
         assert!(has_no_errors(&parse_result));
 
