@@ -992,4 +992,57 @@ mod tests {
                 .contains("Variable 'scoped_var' not found")
         );
     }
+
+    #[test]
+    fn test_if_statements_return_values() {
+        // fn main() -> i32 {
+        //     if true {
+        //         if false {
+        //             return 1;
+        //         } else {
+        //             return 2;
+        //         }
+        //     }
+        //     return 3;
+        // }
+        let context = create_test_context();
+        let mut codegen = CodeGenerator::new(&context);
+
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "main",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![Stmt::If {
+                    condition: Box::new(Expr::BoolLit {
+                        value: true,
+                        span: create_span(),
+                    }),
+                    then_branch: vec![Stmt::Return {
+                        expr: Some(Box::new(Expr::IntLit {
+                            value: "1",
+                            span: create_span(),
+                            r#type: Type::I32,
+                        })),
+                        span: create_span(),
+                    }],
+                    else_branch: Some(vec![Stmt::Return {
+                        expr: Some(Box::new(Expr::IntLit {
+                            value: "2",
+                            span: create_span(),
+                            r#type: Type::I32,
+                        })),
+                        span: create_span(),
+                    }]),
+                    span: create_span(),
+                }],
+                span: create_span(),
+            }],
+        };
+        let result = codegen.generate(&program).unwrap();
+
+        // Should contain if operation with return
+        assert!(result.contains("scf.if"));
+        assert!(result.contains("func.return"));
+    }
 }
