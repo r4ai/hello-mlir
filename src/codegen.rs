@@ -172,12 +172,13 @@ impl<'c> CodeGenerator<'c> {
         expr: &ast::Expr,
     ) -> Result<Value<'c, 'c>> {
         match expr {
-            ast::Expr::IntLit { value, .. } => {
+            ast::Expr::IntLit { value, r#type, .. } => {
+                let int_type = self.ast_type_to_mlir_type(r#type)?;
                 let const_op = block.append_operation(arith::constant(
                     self.context,
                     melior::ir::attribute::IntegerAttribute::new(
-                        IntegerType::new(self.context, 32).into(),
-                        *value as i64,
+                        int_type,
+                        value.parse::<i64>().unwrap_or(0),
                     )
                     .into(),
                     self.location,
@@ -500,8 +501,9 @@ mod tests {
                 r#type: Type::I32,
                 body: vec![Stmt::Return {
                     expr: Some(Box::new(Expr::IntLit {
-                        value: 42,
+                        value: "42",
                         span: create_span(),
+                        r#type: Type::I32,
                     })),
                     span: create_span(),
                 }],
@@ -531,13 +533,15 @@ mod tests {
                 body: vec![Stmt::Return {
                     expr: Some(Box::new(Expr::BinOp {
                         lhs: Box::new(Expr::IntLit {
-                            value: 5,
+                            value: "5",
                             span: create_span(),
+                            r#type: Type::I32,
                         }),
                         op: BinOp::Add,
                         rhs: Box::new(Expr::IntLit {
-                            value: 3,
+                            value: "3",
                             span: create_span(),
+                            r#type: Type::I32,
                         }),
                         span: create_span(),
                     })),
@@ -654,8 +658,9 @@ mod tests {
                     expr: Some(Box::new(Expr::UnaryOp {
                         op: UnaryOp::Neg,
                         expr: Box::new(Expr::IntLit {
-                            value: 42,
+                            value: "42",
                             span: create_span(),
+                            r#type: Type::I32,
                         }),
                         span: create_span(),
                     })),
@@ -713,8 +718,9 @@ mod tests {
                         name: "x",
                         r#type: Type::I32,
                         value: Some(Expr::IntLit {
-                            value: 10,
+                            value: "10",
                             span: create_span(),
+                            r#type: Type::I32,
                         }),
                         span: create_span(),
                     },

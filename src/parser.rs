@@ -49,8 +49,9 @@ where
     let expr = recursive(|expr| {
         let literal = select! {
             Token::Integer(value) = e => ast::Expr::IntLit {
-                value: value.parse().unwrap(),
-                span: ast::Span::from(e.span())
+                value,
+                span: ast::Span::from(e.span()),
+                r#type: None,
             },
             Token::Identifier(ident) = e if ident == "true" => ast::Expr::BoolLit {
                 value: true,
@@ -75,7 +76,7 @@ where
             .collect::<Vec<_>>()
             .delimited_by(just(Token::LParen), just(Token::RParen));
 
-        // function call: identifier '(' [args] ')' (only in expression context)
+        // identifier '(' [args] ')' (only in expression context)
         let function_call =
             identifier
                 .then(call_args)
@@ -235,11 +236,11 @@ where
                     span: ast::Span::from(e.span()),
                 });
 
-        // "let" identifier [":" type] ["=" expr] ";"
+        // "let" identifier [":" type] "=" expr ";"
         let let_declaration = just(Token::LetDeclaration)
             .ignore_then(identifier)
             .then(just(Token::Colon).ignore_then(r#type.clone()).or_not())
-            .then(just(Token::Assign).ignore_then(expr.clone()).or_not())
+            .then(just(Token::Assign).ignore_then(expr.clone()))
             .then_ignore(just(Token::Semicolon))
             .map_with(|((name, ty), value), e| ast::Stmt::LetDecl {
                 name,
