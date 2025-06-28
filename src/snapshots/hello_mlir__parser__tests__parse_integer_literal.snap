@@ -10,11 +10,12 @@ functions:
       - Expr:
           expr:
             IntLit:
-              value: 42
+              value: "42"
               span:
                 start: 19
                 end: 21
                 context: ~
+              type: ~
           span:
             start: 19
             end: 21

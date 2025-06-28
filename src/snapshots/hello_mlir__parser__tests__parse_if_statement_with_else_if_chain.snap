@@ -10,20 +10,22 @@ functions:
       - If:
           condition:
             IntLit:
-              value: 1
+              value: "1"
               span:
                 start: 26
                 end: 27
                 context: ~
+              type: ~
           then_branch:
             - Expr:
                 expr:
                   IntLit:
-                    value: 1
+                    value: "1"
                     span:
                       start: 38
                       end: 39
                       context: ~
+                    type: ~
                 span:
                   start: 38
                   end: 39
@@ -32,20 +34,22 @@ functions:
             - If:
                 condition:
                   IntLit:
-                    value: 2
+                    value: "2"
                     span:
                       start: 54
                       end: 55
                       context: ~
+                    type: ~
                 then_branch:
                   - Expr:
                       expr:
                         IntLit:
-                          value: 2
+                          value: "2"
                           span:
                             start: 66
                             end: 67
                             context: ~
+                          type: ~
                       span:
                         start: 66
                         end: 67
@@ -54,20 +58,22 @@ functions:
                   - If:
                       condition:
                         IntLit:
-                          value: 3
+                          value: "3"
                           span:
                             start: 82
                             end: 83
                             context: ~
+                          type: ~
                       then_branch:
                         - Expr:
                             expr:
                               IntLit:
-                                value: 3
+                                value: "3"
                                 span:
                                   start: 94
                                   end: 95
                                   context: ~
+                                type: ~
                             span:
                               start: 94
                               end: 95
@@ -76,11 +82,12 @@ functions:
                         - Expr:
                             expr:
                               IntLit:
-                                value: 4
+                                value: "4"
                                 span:
                                   start: 117
                                   end: 118
                                   context: ~
+                                type: ~
                             span:
                               start: 117
                               end: 118

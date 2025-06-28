@@ -10,29 +10,32 @@ functions:
       - If:
           condition:
             IntLit:
-              value: 1
+              value: "1"
               span:
                 start: 26
                 end: 27
                 context: ~
+              type: ~
           then_branch:
             - If:
                 condition:
                   IntLit:
-                    value: 2
+                    value: "2"
                     span:
                       start: 41
                       end: 42
                       context: ~
+                    type: ~
                 then_branch:
                   - Expr:
                       expr:
                         IntLit:
-                          value: 3
+                          value: "3"
                           span:
                             start: 57
                             end: 58
                             context: ~
+                          type: ~
                       span:
                         start: 57
                         end: 58
@@ -41,11 +44,12 @@ functions:
                   - Expr:
                       expr:
                         IntLit:
-                          value: 4
+                          value: "4"
                           span:
                             start: 88
                             end: 89
                             context: ~
+                          type: ~
                       span:
                         start: 88
                         end: 89
@@ -58,11 +62,12 @@ functions:
             - Expr:
                 expr:
                   IntLit:
-                    value: 5
+                    value: "5"
                     span:
                       start: 121
                       end: 122
                       context: ~
+                    type: ~
                 span:
                   start: 121
                   end: 122

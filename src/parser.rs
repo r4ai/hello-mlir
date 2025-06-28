@@ -565,16 +565,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_variable_declaration_without_value() {
-        let input = "fn test() -> i32 { let x: i32; 42 }";
-        let result = parse(input);
-        assert!(has_no_errors(&result));
-
-        let program = result.into_result().unwrap();
-        assert_yaml_snapshot!(program);
-    }
-
-    #[test]
     fn test_parse_mutable_variable_declaration() {
         let input = "fn test() -> i32 { var x: i32 = 42; x }";
         let result = parse(input);

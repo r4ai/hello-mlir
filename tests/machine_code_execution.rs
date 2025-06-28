@@ -11,15 +11,14 @@ fn create_test_program(source: &str) -> Result<String, Box<dyn std::error::Error
             return Err(format!("Parse errors: {:?}", errors).into());
         }
     };
-    
+
     // Type check the program
-    let typed_program = typechecker::typecheck_and_transform(&program, "test").map_err(|err| {
-        format!("Type check error: {:?}", err)
-    })?;
-    
+    let typed_program = typechecker::typecheck(&program, "test")
+        .map_err(|err| format!("Type check error: {:?}", err))?;
+
     // Generate MLIR code
     let mlir_code = codegen::generate_code(&typed_program, None)?;
-    
+
     Ok(mlir_code)
 }
 
@@ -36,15 +35,14 @@ fn compile_and_run_source(source: &str) -> Result<i32, Box<dyn std::error::Error
             return Err(format!("Parse errors: {:?}", errors).into());
         }
     };
-    
+
     // Type check the program
-    let typed_program = typechecker::typecheck_and_transform(&program, "test").map_err(|err| {
-        format!("Type check error: {:?}", err)
-    })?;
-    
+    let typed_program = typechecker::typecheck(&program, "test")
+        .map_err(|err| format!("Type check error: {:?}", err))?;
+
     let temp_dir = TempDir::new()?;
     let exe_path = temp_dir.path().join("test");
-    
+
     // Generate executable using codegen with LLVM conversion
     codegen::generate_code(&typed_program, Some(exe_path.to_str().unwrap()))?;
 
@@ -54,7 +52,7 @@ fn compile_and_run_source(source: &str) -> Result<i32, Box<dyn std::error::Error
     // Get exit code - note that non-zero exit codes are normal for our programs
     // They return the computed value as the exit code
     let exit_code = output.status.code().unwrap_or(-1);
-    
+
     // Only consider it a failure if the program crashed (exit code < 0) or had stderr output
     if exit_code < 0 || !output.stderr.is_empty() {
         return Err(format!(
@@ -62,7 +60,8 @@ fn compile_and_run_source(source: &str) -> Result<i32, Box<dyn std::error::Error
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
             output.status
-        ).into());
+        )
+        .into());
     }
 
     Ok(exit_code)
@@ -74,14 +73,8 @@ fn check_mlir_tools_available() -> bool {
         .arg("--version")
         .output()
         .is_ok()
-        && Command::new("llc")
-            .arg("--version")
-            .output()
-            .is_ok()
-        && Command::new("clang")
-            .arg("--version")
-            .output()
-            .is_ok()
+        && Command::new("llc").arg("--version").output().is_ok()
+        && Command::new("clang").arg("--version").output().is_ok()
 }
 
 /// Compile MLIR to executable and run it
@@ -111,7 +104,8 @@ fn compile_and_run_mlir(mlir_code: &str) -> Result<i32, Box<dyn std::error::Erro
         return Err(format!(
             "Failed to convert MLIR to LLVM IR: {}",
             String::from_utf8_lossy(&output.stderr)
-        ).into());
+        )
+        .into());
     }
 
     // Compile LLVM IR to object file
@@ -127,7 +121,8 @@ fn compile_and_run_mlir(mlir_code: &str) -> Result<i32, Box<dyn std::error::Erro
         return Err(format!(
             "Failed to compile to object file: {}",
             String::from_utf8_lossy(&output.stderr)
-        ).into());
+        )
+        .into());
     }
 
     // Link to create executable
@@ -141,7 +136,8 @@ fn compile_and_run_mlir(mlir_code: &str) -> Result<i32, Box<dyn std::error::Erro
         return Err(format!(
             "Failed to link executable: {}",
             String::from_utf8_lossy(&output.stderr)
-        ).into());
+        )
+        .into());
     }
 
     // Run the executable
@@ -151,7 +147,8 @@ fn compile_and_run_mlir(mlir_code: &str) -> Result<i32, Box<dyn std::error::Erro
         return Err(format!(
             "Program execution failed: {}",
             String::from_utf8_lossy(&output.stderr)
-        ).into());
+        )
+        .into());
     }
 
     // Get exit code
@@ -167,7 +164,7 @@ fn test_simple_return_value() {
     "#;
 
     let mlir_code = create_test_program(source).expect("Failed to create test program");
-    
+
     // Test that MLIR is generated correctly
     assert!(mlir_code.contains("func.func @main"));
     assert!(mlir_code.contains("arith.constant 42"));
@@ -192,7 +189,7 @@ fn test_arithmetic_operations() {
     "#;
 
     let mlir_code = create_test_program(source).expect("Failed to create test program");
-    
+
     // Test that MLIR contains arithmetic operations
     assert!(mlir_code.contains("arith.constant 10"));
     assert!(mlir_code.contains("arith.constant 5"));
@@ -223,7 +220,7 @@ fn test_function_with_parameters() {
     "#;
 
     let mlir_code = create_test_program(source).expect("Failed to create test program");
-    
+
     // Test that MLIR contains function definitions and calls
     assert!(mlir_code.contains("func.func @add"));
     assert!(mlir_code.contains("func.func @main"));
@@ -252,7 +249,7 @@ fn test_variable_declarations() {
     "#;
 
     let mlir_code = create_test_program(source).expect("Failed to create test program");
-    
+
     // Test that MLIR is generated
     assert!(mlir_code.contains("func.func @main"));
     assert!(mlir_code.contains("arith.constant"));
@@ -281,7 +278,7 @@ fn test_boolean_operations() {
     "#;
 
     let mlir_code = create_test_program(source).expect("Failed to create test program");
-    
+
     // Test that MLIR contains boolean constants
     assert!(mlir_code.contains("func.func @main"));
     assert!(mlir_code.contains("arith.constant"));
@@ -305,7 +302,7 @@ fn test_mlir_verification() {
     "#;
 
     let mlir_code = create_test_program(source).expect("Failed to create test program");
-    
+
     // Write MLIR to temporary file and verify it
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let mlir_path = temp_dir.path().join("test.mlir");

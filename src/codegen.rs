@@ -1,4 +1,4 @@
-use crate::ast::{self, Type};
+use crate::ast;
 use anyhow::Result;
 use melior::{
     Context,
@@ -34,7 +34,7 @@ impl<'c> CodeGenerator<'c> {
         }
     }
 
-    pub fn generate(&mut self, program: &ast::Program<Type>) -> Result<String> {
+    pub fn generate(&mut self, program: &ast::Program<ast::Type>) -> Result<String> {
         // Generate all functions
         for function in &program.functions {
             self.generate_function(function)?;
@@ -48,20 +48,20 @@ impl<'c> CodeGenerator<'c> {
         Ok(format!("{}", self.module.as_operation()))
     }
 
-    fn ast_type_to_mlir_type(&self, ast_type: &Type) -> Result<melior::ir::Type<'c>> {
+    fn ast_type_to_mlir_type(&self, ast_type: &ast::Type) -> Result<melior::ir::Type<'c>> {
         match ast_type {
-            Type::I32 => Ok(IntegerType::new(self.context, 32).into()),
-            Type::I64 => Ok(IntegerType::new(self.context, 64).into()),
-            Type::Bool => Ok(IntegerType::new(self.context, 1).into()),
-            Type::Void => Ok(melior::ir::r#type::Type::none(self.context)),
-            Type::F32 => Ok(melior::ir::r#type::Type::float32(self.context)),
-            Type::F64 => Ok(melior::ir::r#type::Type::float64(self.context)),
-            Type::String => Ok(llvm::r#type::pointer(self.context, 0)),
-            Type::Fn { .. } => Ok(llvm::r#type::pointer(self.context, 0)),
+            ast::Type::I32 => Ok(IntegerType::new(self.context, 32).into()),
+            ast::Type::I64 => Ok(IntegerType::new(self.context, 64).into()),
+            ast::Type::Bool => Ok(IntegerType::new(self.context, 1).into()),
+            ast::Type::Void => Ok(melior::ir::r#type::Type::none(self.context)),
+            ast::Type::F32 => Ok(melior::ir::r#type::Type::float32(self.context)),
+            ast::Type::F64 => Ok(melior::ir::r#type::Type::float64(self.context)),
+            ast::Type::String => Ok(llvm::r#type::pointer(self.context, 0)),
+            ast::Type::Fn { .. } => Ok(llvm::r#type::pointer(self.context, 0)),
         }
     }
 
-    fn generate_function(&mut self, function: &ast::FnDecl<Type>) -> Result<()> {
+    fn generate_function(&mut self, function: &ast::FnDecl<ast::Type>) -> Result<()> {
         let return_type = self.ast_type_to_mlir_type(&function.r#type)?;
 
         // Collect parameter types
@@ -121,13 +121,22 @@ impl<'c> CodeGenerator<'c> {
     fn generate_statement(
         &mut self,
         block: &Block<'c>,
-        stmt: &ast::Stmt<Type>,
+        stmt: &ast::Stmt<ast::Type>,
     ) -> Result<Option<Value<'c, 'c>>> {
         match stmt {
-            ast::Stmt::LetDecl { name, value, .. } | ast::Stmt::VarDecl { name, value, .. } => {
-                if let Some(expr) = value {
-                    let val = self.generate_expression(block, expr)?;
-                    self.variables.insert(name.to_string(), val);
+            ast::Stmt::LetDecl {
+                name, value: expr, ..
+            } => {
+                let value = self.generate_expression(block, expr)?;
+                self.variables.insert(name.to_string(), value);
+                Ok(None)
+            }
+            ast::Stmt::VarDecl {
+                name, value: expr, ..
+            } => {
+                if let Some(expr) = expr {
+                    let value = self.generate_expression(block, expr)?;
+                    self.variables.insert(name.to_string(), value);
                     Ok(None)
                 } else {
                     Ok(None)
@@ -169,7 +178,7 @@ impl<'c> CodeGenerator<'c> {
     fn generate_expression(
         &mut self,
         block: &Block<'c>,
-        expr: &ast::Expr,
+        expr: &ast::Expr<ast::Type>,
     ) -> Result<Value<'c, 'c>> {
         match expr {
             ast::Expr::IntLit { value, r#type, .. } => {
@@ -445,7 +454,10 @@ impl<'c> CodeGenerator<'c> {
     }
 }
 
-pub fn generate_code(program: &ast::Program<Type>, output_path: Option<&str>) -> Result<String> {
+pub fn generate_code(
+    program: &ast::Program<ast::Type>,
+    output_path: Option<&str>,
+) -> Result<String> {
     // Create MLIR context and register dialects
     let registry = DialectRegistry::new();
     register_all_dialects(&registry);
@@ -468,7 +480,7 @@ pub fn generate_code(program: &ast::Program<Type>, output_path: Option<&str>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{BinOp, Expr, FnDecl, FnParam, Span, Stmt, UnaryOp};
+    use crate::ast::{BinOp, Expr, FnDecl, FnParam, Span, Stmt, Type, UnaryOp};
 
     fn create_span() -> Span {
         Span {
@@ -717,11 +729,11 @@ mod tests {
                     Stmt::LetDecl {
                         name: "x",
                         r#type: Type::I32,
-                        value: Some(Expr::IntLit {
+                        value: Expr::IntLit {
                             value: "10",
                             span: create_span(),
                             r#type: Type::I32,
-                        }),
+                        },
                         span: create_span(),
                     },
                     Stmt::Return {

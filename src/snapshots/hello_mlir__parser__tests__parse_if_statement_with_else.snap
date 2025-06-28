@@ -10,20 +10,22 @@ functions:
       - If:
           condition:
             IntLit:
-              value: 1
+              value: "1"
               span:
                 start: 22
                 end: 23
                 context: ~
+              type: ~
           then_branch:
             - Expr:
                 expr:
                   IntLit:
-                    value: 1
+                    value: "1"
                     span:
                       start: 26
                       end: 27
                       context: ~
+                    type: ~
                 span:
                   start: 26
                   end: 27
@@ -32,11 +34,12 @@ functions:
             - Expr:
                 expr:
                   IntLit:
-                    value: 2
+                    value: "2"
                     span:
                       start: 37
                       end: 38
                       context: ~
+                    type: ~
                 span:
                   start: 37
                   end: 38
