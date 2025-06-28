@@ -2,7 +2,7 @@ use crate::ast;
 use anyhow::Result;
 use melior::{
     Context,
-    dialect::{DialectRegistry, arith, func, llvm},
+    dialect::{DialectRegistry, arith, func, llvm, scf},
     ir::{
         Block, BlockLike, Location, Module, Region, RegionLike, Value,
         attribute::{FlatSymbolRefAttribute, StringAttribute, TypeAttribute},
@@ -14,11 +14,67 @@ use melior::{
 };
 use std::collections::HashMap;
 
+struct Variable<'c> {
+    name: String,
+    value: Value<'c, 'c>,
+}
+
+struct VariableEnvironment<'c> {
+    scopes: Vec<HashMap<String, Variable<'c>>>,
+}
+
+impl<'c> VariableEnvironment<'c> {
+    fn new() -> Self {
+        VariableEnvironment {
+            scopes: vec![HashMap::new()],
+        }
+    }
+
+    fn push_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn pop_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    fn declare_var(&mut self, name: String, value: Value<'c, 'c>) -> Result<()> {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name.clone(), Variable { name, value });
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("No scope available to declare variable"))
+        }
+    }
+
+    fn assign_var(&mut self, name: String, value: Value<'c, 'c>) -> Result<()> {
+        for scope in self.scopes.iter_mut().rev() {
+            if scope.contains_key(&name) {
+                scope.insert(name.clone(), Variable { name, value });
+                return Ok(());
+            }
+        }
+        Err(anyhow::anyhow!(
+            "Variable '{}' not found for assignment",
+            name
+        ))
+    }
+
+    fn lookup_var(&self, name: &str) -> Result<Value<'c, 'c>> {
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get(name))
+            .map(|var| var.value)
+            .ok_or_else(|| anyhow::anyhow!("Variable '{}' not found", name))
+    }
+}
+
 pub struct CodeGenerator<'c> {
     context: &'c Context,
     module: Module<'c>,
     location: Location<'c>,
-    variables: HashMap<String, Value<'c, 'c>>,
+    variables: VariableEnvironment<'c>,
 }
 
 impl<'c> CodeGenerator<'c> {
@@ -30,7 +86,7 @@ impl<'c> CodeGenerator<'c> {
             context,
             module,
             location,
-            variables: HashMap::new(),
+            variables: VariableEnvironment::new(),
         }
     }
 
@@ -73,6 +129,9 @@ impl<'c> CodeGenerator<'c> {
         // Create function type
         let function_type = FunctionType::new(self.context, &param_types, &[return_type]);
 
+        // Push a new scope for this function
+        self.variables.push_scope();
+
         // Create the function operation
         let func_op = func::func(
             self.context,
@@ -90,7 +149,8 @@ impl<'c> CodeGenerator<'c> {
                 // Store parameter values in variables map
                 for (i, param) in function.params.iter().enumerate() {
                     let arg_value = block.argument(i).unwrap().into();
-                    self.variables.insert(param.name.to_string(), arg_value);
+                    self.variables
+                        .declare_var(param.name.to_string(), arg_value)?;
                 }
 
                 // Generate function body
@@ -114,6 +174,9 @@ impl<'c> CodeGenerator<'c> {
             self.location,
         );
 
+        // Pop the function scope
+        self.variables.pop_scope();
+
         self.module.body().append_operation(func_op);
         Ok(())
     }
@@ -128,7 +191,7 @@ impl<'c> CodeGenerator<'c> {
                 name, value: expr, ..
             } => {
                 let value = self.generate_expression(block, expr)?;
-                self.variables.insert(name.to_string(), value);
+                self.variables.declare_var(name.to_string(), value)?;
                 Ok(None)
             }
             ast::Stmt::VarDecl {
@@ -136,15 +199,13 @@ impl<'c> CodeGenerator<'c> {
             } => {
                 if let Some(expr) = expr {
                     let value = self.generate_expression(block, expr)?;
-                    self.variables.insert(name.to_string(), value);
-                    Ok(None)
-                } else {
-                    Ok(None)
+                    self.variables.declare_var(name.to_string(), value)?;
                 }
+                Ok(None)
             }
             ast::Stmt::Assign { name, value, .. } => {
                 let val = self.generate_expression(block, value)?;
-                self.variables.insert(name.to_string(), val);
+                self.variables.assign_var(name.to_string(), val)?;
                 Ok(None)
             }
             ast::Stmt::Return { expr, .. } => {
@@ -161,14 +222,30 @@ impl<'c> CodeGenerator<'c> {
             }
             ast::Stmt::If {
                 condition,
-                then_branch: _,
-                else_branch: _,
+                then_branch,
+                else_branch,
                 ..
             } => {
-                let _cond_value = self.generate_expression(block, condition)?;
+                let condition_value = self.generate_expression(block, condition)?;
+
+                // Push scope for then branch
+                self.variables.push_scope();
+                for stmt in then_branch {
+                    self.generate_statement(block, stmt)?;
+                }
+                self.variables.pop_scope();
+
+                // Push scope for else branch if it exists
+                if let Some(else_branch) = else_branch {
+                    self.variables.push_scope();
+                    for stmt in else_branch {
+                        self.generate_statement(block, stmt)?;
+                    }
+                    self.variables.pop_scope();
+                }
 
                 // TODO: Implement SCF if operation properly
-                // For now, generate the condition and return None
+                // For now, just generate the statements and return None
                 Ok(None)
             }
             _ => Err(anyhow::anyhow!("Unsupported statement: {:?}", stmt)),
@@ -295,7 +372,7 @@ impl<'c> CodeGenerator<'c> {
                         Ok(neg_op.result(0)?.into())
                     }
                     ast::UnaryOp::Not => {
-                        let one_op = block.append_operation(arith::constant(
+                        let true_op = block.append_operation(arith::constant(
                             self.context,
                             melior::ir::attribute::IntegerAttribute::new(
                                 IntegerType::new(self.context, 1).into(),
@@ -304,18 +381,14 @@ impl<'c> CodeGenerator<'c> {
                             .into(),
                             self.location,
                         ));
-                        let one_val = one_op.result(0)?.into();
+                        let true_val = true_op.result(0)?.into();
                         let not_op =
-                            block.append_operation(arith::xori(val, one_val, self.location));
+                            block.append_operation(arith::xori(val, true_val, self.location));
                         Ok(not_op.result(0)?.into())
                     }
                 }
             }
-            ast::Expr::VarRef { name, .. } => self
-                .variables
-                .get(*name)
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Variable '{}' not found", name)),
+            ast::Expr::VarRef { name, .. } => self.variables.lookup_var(name),
             ast::Expr::FnCall { name, args, .. } => {
                 let mut arg_values = Vec::new();
                 for arg in args {
@@ -326,7 +399,7 @@ impl<'c> CodeGenerator<'c> {
                     self.context,
                     FlatSymbolRefAttribute::new(self.context, name),
                     &arg_values,
-                    &[IntegerType::new(self.context, 32).into()], // Simplified return type
+                    &[IntegerType::new(self.context, 32).into()], // TODO: Use real type
                     self.location,
                 ));
                 Ok(call_op.result(0)?.into())
@@ -752,5 +825,171 @@ mod tests {
 
         // Should contain constant assignment
         assert!(result.contains("arith.constant"));
+    }
+
+    #[test]
+    fn test_scoped_variables() {
+        let context = create_test_context();
+        let mut codegen = CodeGenerator::new(&context);
+
+        // Create: fn test() -> i32 {
+        //   let x: i32 = 10;
+        //   if true {
+        //     let x: i32 = 20;
+        //   }
+        //   return x; // Should return 10, not 20
+        // }
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "test",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![
+                    Stmt::LetDecl {
+                        name: "x",
+                        r#type: Type::I32,
+                        value: Expr::IntLit {
+                            value: "10",
+                            span: create_span(),
+                            r#type: Type::I32,
+                        },
+                        span: create_span(),
+                    },
+                    Stmt::If {
+                        condition: Box::new(Expr::BoolLit {
+                            value: true,
+                            span: create_span(),
+                        }),
+                        then_branch: vec![Stmt::LetDecl {
+                            name: "x",
+                            r#type: Type::I32,
+                            value: Expr::IntLit {
+                                value: "20",
+                                span: create_span(),
+                                r#type: Type::I32,
+                            },
+                            span: create_span(),
+                        }],
+                        else_branch: None,
+                        span: create_span(),
+                    },
+                    Stmt::Return {
+                        expr: Some(Box::new(Expr::VarRef {
+                            name: "x",
+                            span: create_span(),
+                        })),
+                        span: create_span(),
+                    },
+                ],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program);
+        // This should work once we implement proper scoping
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_variable_shadowing_in_functions() {
+        let context = create_test_context();
+        let mut codegen = CodeGenerator::new(&context);
+
+        // Create two functions with same parameter name to test isolation
+        let program = ast::Program {
+            functions: vec![
+                FnDecl {
+                    name: "func1",
+                    params: vec![FnParam {
+                        name: "x",
+                        r#type: Type::I32,
+                        span: create_span(),
+                    }],
+                    r#type: Type::I32,
+                    body: vec![Stmt::Return {
+                        expr: Some(Box::new(Expr::VarRef {
+                            name: "x",
+                            span: create_span(),
+                        })),
+                        span: create_span(),
+                    }],
+                    span: create_span(),
+                },
+                FnDecl {
+                    name: "func2",
+                    params: vec![FnParam {
+                        name: "x",
+                        r#type: Type::I32,
+                        span: create_span(),
+                    }],
+                    r#type: Type::I32,
+                    body: vec![Stmt::Return {
+                        expr: Some(Box::new(Expr::VarRef {
+                            name: "x",
+                            span: create_span(),
+                        })),
+                        span: create_span(),
+                    }],
+                    span: create_span(),
+                },
+            ],
+        };
+
+        let result = codegen.generate(&program);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_variable_not_accessible_after_scope() {
+        let context = create_test_context();
+        let mut codegen = CodeGenerator::new(&context);
+
+        // Test that a variable declared in an if block is not accessible afterwards
+        let program = ast::Program {
+            functions: vec![FnDecl {
+                name: "test",
+                params: vec![],
+                r#type: Type::I32,
+                body: vec![
+                    Stmt::If {
+                        condition: Box::new(Expr::BoolLit {
+                            value: true,
+                            span: create_span(),
+                        }),
+                        then_branch: vec![Stmt::LetDecl {
+                            name: "scoped_var",
+                            r#type: Type::I32,
+                            value: Expr::IntLit {
+                                value: "42",
+                                span: create_span(),
+                                r#type: Type::I32,
+                            },
+                            span: create_span(),
+                        }],
+                        else_branch: None,
+                        span: create_span(),
+                    },
+                    // This should fail since scoped_var is not accessible here
+                    Stmt::Return {
+                        expr: Some(Box::new(Expr::VarRef {
+                            name: "scoped_var",
+                            span: create_span(),
+                        })),
+                        span: create_span(),
+                    },
+                ],
+                span: create_span(),
+            }],
+        };
+
+        let result = codegen.generate(&program);
+        // This should fail because scoped_var is not accessible outside the if block
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Variable 'scoped_var' not found")
+        );
     }
 }
