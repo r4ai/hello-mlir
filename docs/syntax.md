@@ -32,7 +32,7 @@ fn main() -> i32 {
      * block comment.
      */
     let x: i32 = 10; // Comment at the end of a line
-    return x;
+    x // implicit return
 }
 ```
 
@@ -47,8 +47,8 @@ The language supports the following data types:
 -   `f32`: 32-bit floating-point number
 -   `f64`: 64-bit floating-point number
 -   `bool`: Boolean (`true` or `false`)
--   `string`: String literal (currently not implemented)
 -   `void`: Represents the absence of a value
+-   `string`: String type (the type exists, but string literals are not yet supported).
 
 ### Function Types
 
@@ -62,7 +62,7 @@ fn add(a: i32, b: i32) -> i32 {
 
 // A function with no parameters that returns void
 fn do_nothing() -> void {
-    // No return value
+    // No return value, the function body is empty
 }
 ```
 
@@ -72,20 +72,23 @@ Variables can be declared as immutable (`let`) or mutable (`var`).
 
 ### Immutable Variables (`let`)
 
-Immutable variables are declared using the `let` keyword. Once assigned, their value cannot be changed.
+Immutable variables are declared using the `let` keyword. They must be initialized at declaration, and once assigned, their value cannot be changed.
 
 ```
 let x: i32 = 10;
-let y = 20; // Type can be inferred
+let y = 20; // Type can be inferred from the value
 ```
 
 ### Mutable Variables (`var`)
 
-Mutable variables are declared using the `var` keyword. Their value can be changed after declaration.
+Mutable variables are declared using the `var` keyword. Their value can be changed after declaration. Initialization is optional.
 
 ```
 var x: i32 = 10;
 x = 20; // Allowed
+
+var y: i32; // Allowed, value is uninitialized
+y = 30;
 ```
 
 ## Statements
@@ -97,6 +100,7 @@ Statements are the building blocks of a function's body.
 ```
 let x: i32 = 10;
 var y: i32 = 20;
+var z: i32;
 ```
 
 ### Assignment
@@ -105,33 +109,9 @@ var y: i32 = 20;
 y = 30;
 ```
 
-### Return Statement
-
-The `return` statement is used to return a value from a function.
-
-```
-fn get_number() -> i32 {
-    return 42;
-}
-```
-
-### If Statement
-
-The `if` statement allows for conditional execution. It can be followed by an optional `else` block.
-
-```
-if x > 10 {
-    // do something
-} else if x < 10 {
-    // do something else
-} else {
-    // do another thing
-}
-```
-
 ### Expression Statement
 
-An expression can be used as a statement by appending a semicolon.
+An expression can be used as a statement by appending a semicolon. The value of the expression is discarded.
 
 ```
 add(10, 20);
@@ -191,21 +171,52 @@ let x = 10;
 let y = x;
 ```
 
+### If Expression
+
+The `if` construct is an expression that allows for conditional evaluation. It must have an `else` block, and both blocks must evaluate to a value of the same type.
+
+```
+let value = if x > 10 {
+    1 // then_branch
+} else {
+    2 // else_branch
+};
+```
+
+Chains of `else if` can be created by using another `if` expression in the `else` block.
+
+```
+let value = if x > 10 {
+    1
+} else {
+    if x < 5 {
+        2
+    } else {
+        3
+    }
+};
+```
+
 ## Functions
 
 Functions are defined using the `fn` keyword. They have a name, a list of parameters, a return type, and a body.
 
+The `return` keyword is not supported. A function implicitly returns the value of the last expression in its body. If the last statement in the body is an expression without a trailing semicolon, its value is returned.
+
 ```
 fn function_name(param1: type1, param2: type2) -> return_type {
     // function body
-    return value;
+    value // implicit return
 }
-```
 
-The function body is a block of statements. The last expression in the block is implicitly returned if there is no semicolon.
-
-```
 fn add(a: i32, b: i32) -> i32 {
-    a + b // Implicit return
+    a + b // Implicitly returns the result of a + b
+}
+
+fn do_stuff() -> i32 {
+    let x = 10;
+    let y = 20;
+    x + y; // This value is discarded
+    x - y  // This value is returned
 }
 ```
