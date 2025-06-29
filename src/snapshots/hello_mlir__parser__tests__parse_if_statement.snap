@@ -7,40 +7,37 @@ functions:
     params: []
     type: I32
     body:
-      - If:
-          condition:
-            IntLit:
-              value: 1
+      - Expr:
+          expr:
+            If:
+              condition:
+                IntLit:
+                  value: "1"
+                  span:
+                    start: 22
+                    end: 23
+                    context: ~
+                  type: ~
+              then_branch:
+                IntLit:
+                  value: "1"
+                  span:
+                    start: 26
+                    end: 27
+                    context: ~
+                  type: ~
+              else_branch:
+                IntLit:
+                  value: "0"
+                  span:
+                    start: 37
+                    end: 38
+                    context: ~
+                  type: ~
               span:
-                start: 22
-                end: 23
+                start: 19
+                end: 40
                 context: ~
-          then_branch:
-            - Expr:
-                expr:
-                  IntLit:
-                    value: 1
-                    span:
-                      start: 26
-                      end: 27
-                      context: ~
-                span:
-                  start: 26
-                  end: 27
-                  context: ~
-          else_branch:
-            - Expr:
-                expr:
-                  IntLit:
-                    value: 0
-                    span:
-                      start: 37
-                      end: 38
-                      context: ~
-                span:
-                  start: 37
-                  end: 38
-                  context: ~
           span:
             start: 19
             end: 40

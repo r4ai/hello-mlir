@@ -12,19 +12,21 @@ functions:
             BinOp:
               lhs:
                 IntLit:
-                  value: 10
+                  value: "10"
                   span:
                     start: 22
                     end: 24
                     context: ~
+                  type: ~
               op: Add
               rhs:
                 IntLit:
-                  value: 20
+                  value: "20"
                   span:
                     start: 27
                     end: 29
                     context: ~
+                  type: ~
               span:
                 start: 22
                 end: 29
@@ -38,19 +40,21 @@ functions:
             BinOp:
               lhs:
                 IntLit:
-                  value: 30
+                  value: "30"
                   span:
                     start: 31
                     end: 33
                     context: ~
+                  type: ~
               op: Add
               rhs:
                 IntLit:
-                  value: 40
+                  value: "40"
                   span:
                     start: 36
                     end: 38
                     context: ~
+                  type: ~
               span:
                 start: 31
                 end: 38

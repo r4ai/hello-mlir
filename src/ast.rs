@@ -12,13 +12,15 @@ pub struct Span<T = usize, C = ()> {
 
 /// Expression
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum Expr<'a> {
+pub enum Expr<'a, Ty = Option<Type<'a>>> {
     /// An integer literal
     IntLit {
         /// The integer value
-        value: i64,
+        value: &'a str,
         /// The span of the literal in the source code
         span: Span,
+        /// The type of the integer (e.g., i32, i64)
+        r#type: Ty,
     },
     /// A boolean literal
     BoolLit {
@@ -30,11 +32,11 @@ pub enum Expr<'a> {
     /// A binary operation
     BinOp {
         /// The left-hand side expression
-        lhs: Box<Expr<'a>>,
+        lhs: Box<Expr<'a, Ty>>,
         /// The operator
         op: BinOp,
         /// The right-hand side expression
-        rhs: Box<Expr<'a>>,
+        rhs: Box<Expr<'a, Ty>>,
         /// The span of the expression in the source code
         span: Span,
     },
@@ -43,7 +45,7 @@ pub enum Expr<'a> {
         /// The operator
         op: UnaryOp,
         /// The expression
-        expr: Box<Expr<'a>>,
+        expr: Box<Expr<'a, Ty>>,
         /// The span of the expression in the source code
         span: Span,
     },
@@ -52,7 +54,7 @@ pub enum Expr<'a> {
         /// The function name
         name: &'a str,
         /// The arguments
-        args: Vec<Expr<'a>>,
+        args: Vec<Expr<'a, Ty>>,
         /// The span of the function call in the source code
         span: Span,
     },
@@ -61,6 +63,17 @@ pub enum Expr<'a> {
         /// The variable name
         name: &'a str,
         /// The span of the variable reference in the source code
+        span: Span,
+    },
+    /// An if expression
+    If {
+        /// The condition
+        condition: Box<Expr<'a, Ty>>,
+        /// The then branch (expression)
+        then_branch: Box<Expr<'a, Ty>>,
+        /// The else branch (expression)
+        else_branch: Box<Expr<'a, Ty>>,
+        /// The span of the if expression in the source code
         span: Span,
     },
 }
@@ -158,7 +171,7 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
         /// The type
         r#type: Ty,
         /// The value
-        value: Option<Expr<'a>>,
+        value: Expr<'a, Ty>,
         /// The span of the variable declaration in the source code
         span: Span,
     },
@@ -170,7 +183,7 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
         /// The type
         r#type: Ty,
         /// The value
-        value: Option<Expr<'a>>,
+        value: Option<Expr<'a, Ty>>,
         /// The span of the variable declaration in the source code
         span: Span,
     },
@@ -180,28 +193,8 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
         /// The variable name
         name: &'a str,
         /// The value to assign
-        value: Box<Expr<'a>>,
+        value: Box<Expr<'a, Ty>>,
         /// The span of the assignment in the source code
-        span: Span,
-    },
-
-    /// An if statement
-    If {
-        /// The condition
-        condition: Box<Expr<'a>>,
-        /// The then branch
-        then_branch: Vec<Stmt<'a, Ty>>,
-        /// The else branch
-        else_branch: Option<Vec<Stmt<'a, Ty>>>,
-        /// The span of the if statement in the source code
-        span: Span,
-    },
-
-    /// A return statement
-    Return {
-        /// The expression to return
-        expr: Option<Box<Expr<'a>>>,
-        /// The span of the return statement in the source code
         span: Span,
     },
 
@@ -209,7 +202,7 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
     #[allow(clippy::enum_variant_names)]
     ExprStmt {
         /// The expression
-        expr: Box<Expr<'a>>,
+        expr: Box<Expr<'a, Ty>>,
         /// The span of the expression statement in the source code
         span: Span,
     },
@@ -217,7 +210,7 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
     /// An expression
     Expr {
         /// The expression
-        expr: Box<Expr<'a>>,
+        expr: Box<Expr<'a, Ty>>,
         /// The span of the expression in the source code
         span: Span,
     },
@@ -312,6 +305,7 @@ impl<'a> Expr<'a> {
             Expr::UnaryOp { span, .. } => span,
             Expr::FnCall { span, .. } => span,
             Expr::VarRef { span, .. } => span,
+            Expr::If { span, .. } => span,
         }
     }
 }
@@ -324,8 +318,6 @@ impl<'a> Stmt<'a, Type<'a>> {
             Stmt::LetDecl { span, .. } => span,
             Stmt::VarDecl { span, .. } => span,
             Stmt::Assign { span, .. } => span,
-            Stmt::If { span, .. } => span,
-            Stmt::Return { span, .. } => span,
             Stmt::ExprStmt { span, .. } => span,
             Stmt::Expr { span, .. } => span,
         }

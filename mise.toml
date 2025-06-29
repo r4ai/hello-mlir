@@ -31,3 +31,6 @@ run = "cargo insta test"
 
 [tasks.test-review]
 run = "cargo insta review"
+
+[tasks.qa]
+depends = ["format-write", "lint-write", "build", "test"]

@@ -12,11 +12,12 @@ functions:
           type: I32
           value:
             IntLit:
-              value: 42
+              value: "42"
               span:
                 start: 32
                 end: 34
                 context: ~
+              type: ~
           span:
             start: 19
             end: 35

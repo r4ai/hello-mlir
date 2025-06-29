@@ -13,11 +13,12 @@ functions:
               op: Neg
               expr:
                 IntLit:
-                  value: 42
+                  value: "42"
                   span:
                     start: 20
                     end: 22
                     context: ~
+                  type: ~
               span:
                 start: 19
                 end: 22

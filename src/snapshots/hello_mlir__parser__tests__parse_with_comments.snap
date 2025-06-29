@@ -12,11 +12,12 @@ functions:
           type: I32
           value:
             IntLit:
-              value: 10
+              value: "10"
               span:
                 start: 99
                 end: 101
                 context: ~
+              type: ~
           span:
             start: 66
             end: 102
@@ -26,11 +27,12 @@ functions:
           type: I32
           value:
             IntLit:
-              value: 20
+              value: "20"
               span:
                 start: 120
                 end: 122
                 context: ~
+              type: ~
           span:
             start: 107
             end: 123

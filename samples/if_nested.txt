@@ -1,0 +1,15 @@
+fn test(x: i32) -> i32 {
+    if x > 0 {
+        if x < 10 {
+            x + 1
+        } else {
+            x - 1
+        }
+    } else {
+        0
+    }
+}
+
+fn main() -> i32 {
+    test(3)
+}

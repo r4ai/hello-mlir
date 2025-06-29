@@ -244,13 +244,33 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    pub fn typecheck_expr(&self, expr: &ast::Expr<'a>) -> Result<ast::Type<'a>, TypeError<'a>> {
+    pub fn typecheck_expr<'b>(
+        &mut self,
+        expr: &'b ast::Expr<'a>,
+    ) -> Result<(ast::Type<'a>, ast::Expr<'a, ast::Type<'a>>), TypeError<'a>> {
         match expr {
-            ast::Expr::IntLit { .. } => Ok(ast::Type::I32),
-            ast::Expr::BoolLit { .. } => Ok(ast::Type::Bool),
+            ast::Expr::IntLit {
+                span,
+                r#type,
+                value,
+            } => Ok((
+                ast::Type::I32,
+                ast::Expr::IntLit {
+                    value,
+                    span: span.clone(),
+                    r#type: r#type.clone().unwrap_or(ast::Type::I32),
+                },
+            )),
+            ast::Expr::BoolLit { span, value } => Ok((
+                ast::Type::Bool,
+                ast::Expr::BoolLit {
+                    value: *value,
+                    span: span.clone(),
+                },
+            )),
             ast::Expr::BinOp { lhs, op, rhs, span } => {
-                let lhs_type = self.typecheck_expr(lhs)?;
-                let rhs_type = self.typecheck_expr(rhs)?;
+                let (lhs_type, lhs) = self.typecheck_expr(lhs)?;
+                let (rhs_type, rhs) = self.typecheck_expr(rhs)?;
                 match op {
                     ast::BinOp::Add | ast::BinOp::Sub | ast::BinOp::Mul | ast::BinOp::Div => {
                         assert_equal(
@@ -261,7 +281,15 @@ impl<'a> TypeChecker<'a> {
                         )?;
                         match lhs_type {
                             ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => {
-                                Ok(lhs_type)
+                                Ok((
+                                    lhs_type,
+                                    ast::Expr::BinOp {
+                                        lhs: Box::new(lhs),
+                                        op: op.clone(),
+                                        rhs: Box::new(rhs),
+                                        span: span.clone(),
+                                    },
+                                ))
                             }
                             _ => Err(TypeError {
                                 kind: TypeErrorKind::InvalidOperation {
@@ -287,7 +315,15 @@ impl<'a> TypeChecker<'a> {
                             | ast::Type::I64
                             | ast::Type::F32
                             | ast::Type::F64
-                            | ast::Type::Bool => Ok(ast::Type::Bool),
+                            | ast::Type::Bool => Ok((
+                                ast::Type::Bool,
+                                ast::Expr::BinOp {
+                                    lhs: Box::new(lhs),
+                                    op: op.clone(),
+                                    rhs: Box::new(rhs),
+                                    span: span.clone(),
+                                },
+                            )),
                             _ => Err(TypeError {
                                 kind: TypeErrorKind::InvalidOperation {
                                     message: format!("Cannot compare type: {:?}", lhs_type),
@@ -309,7 +345,15 @@ impl<'a> TypeChecker<'a> {
                         )?;
                         match lhs_type {
                             ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => {
-                                Ok(ast::Type::Bool)
+                                Ok((
+                                    ast::Type::Bool,
+                                    ast::Expr::BinOp {
+                                        lhs: Box::new(lhs),
+                                        op: op.clone(),
+                                        rhs: Box::new(rhs),
+                                        span: span.clone(),
+                                    },
+                                ))
                             }
                             _ => Err(TypeError {
                                 kind: TypeErrorKind::InvalidOperation {
@@ -328,7 +372,15 @@ impl<'a> TypeChecker<'a> {
                             span.clone(),
                         )?;
                         match lhs_type {
-                            ast::Type::Bool => Ok(ast::Type::Bool),
+                            ast::Type::Bool => Ok((
+                                ast::Type::Bool,
+                                ast::Expr::BinOp {
+                                    lhs: Box::new(lhs),
+                                    op: op.clone(),
+                                    rhs: Box::new(rhs),
+                                    span: span.clone(),
+                                },
+                            )),
                             _ => Err(TypeError {
                                 kind: TypeErrorKind::InvalidOperation {
                                     message: format!(
@@ -344,12 +396,17 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             ast::Expr::UnaryOp { op, expr, span } => {
-                let expr_type = self.typecheck_expr(expr)?;
+                let (expr_type, expr) = self.typecheck_expr(expr)?;
                 match op {
                     ast::UnaryOp::Neg => match expr_type {
-                        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => {
-                            Ok(expr_type)
-                        }
+                        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => Ok((
+                            expr_type,
+                            ast::Expr::UnaryOp {
+                                op: op.clone(),
+                                expr: Box::new(expr),
+                                span: span.clone(),
+                            },
+                        )),
                         _ => Err(TypeError {
                             kind: TypeErrorKind::InvalidOperation {
                                 message: format!("Cannot negate type: {:?}", expr_type),
@@ -360,7 +417,14 @@ impl<'a> TypeChecker<'a> {
                     },
                     ast::UnaryOp::Not => {
                         if expr_type == ast::Type::Bool {
-                            Ok(ast::Type::Bool)
+                            Ok((
+                                ast::Type::Bool,
+                                ast::Expr::UnaryOp {
+                                    op: op.clone(),
+                                    expr: Box::new(expr),
+                                    span: span.clone(),
+                                },
+                            ))
                         } else {
                             Err(TypeError {
                                 kind: TypeErrorKind::InvalidOperation {
@@ -374,48 +438,95 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             ast::Expr::FnCall { name, args, span } => {
-                let fn_to_call = self.env.lookup_fn(name, span.clone())?;
-                match &fn_to_call.r#type {
-                    ast::Type::Fn {
-                        return_type,
-                        params,
-                    } => {
-                        let mut arg_types = args
-                            .iter()
-                            .map(|arg| self.typecheck_expr(arg))
-                            .collect::<Result<Vec<_>, _>>()?;
-
-                        for (arg_type, param) in arg_types.iter_mut().zip(params) {
-                            assert_equal(
-                                arg_type.clone(),
-                                param.r#type.clone(),
-                                self.file_id,
-                                param.span.clone(),
-                            )?;
+                let (return_type, params) = {
+                    let fn_to_call = self.env.lookup_fn(name, span.clone())?;
+                    match &fn_to_call.r#type {
+                        ast::Type::Fn {
+                            return_type,
+                            params,
+                        } => (*return_type.clone(), params.clone()),
+                        _ => {
+                            return Err(TypeError {
+                                kind: TypeErrorKind::InvalidFunctionCall {
+                                    message: format!("{} is not a function", name),
+                                },
+                                file_id: self.file_id,
+                                span: span.clone(),
+                            });
                         }
-
-                        Ok(*(*return_type).clone())
                     }
-                    _ => Err(TypeError {
-                        kind: TypeErrorKind::InvalidFunctionCall {
-                            message: format!("{} is not a function", name),
-                        },
-                        file_id: self.file_id,
-                        span: span.clone(),
-                    }),
+                };
+
+                let mut typed_args = Vec::new();
+                for arg in args {
+                    let (arg_type, typed_arg) = self.typecheck_expr(arg)?;
+                    typed_args.push((arg_type, typed_arg));
                 }
+
+                for ((arg_type, _), param) in typed_args.iter().zip(params.iter()) {
+                    assert_equal(
+                        arg_type.clone(),
+                        param.r#type.clone(),
+                        self.file_id,
+                        param.span.clone(),
+                    )?;
+                }
+
+                Ok((
+                    return_type,
+                    ast::Expr::FnCall {
+                        name,
+                        args: typed_args.into_iter().map(|(_, arg)| arg).collect(),
+                        span: span.clone(),
+                    },
+                ))
             }
             ast::Expr::VarRef { name, span } => {
                 let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
-                Ok(var.r#type.clone())
+                Ok((
+                    var.r#type.clone(),
+                    ast::Expr::VarRef {
+                        name,
+                        span: span.clone(),
+                    },
+                ))
+            }
+            ast::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+                span,
+            } => {
+                let (condition_type, typed_condition) = self.typecheck_expr(condition)?;
+                assert_equal(condition_type, ast::Type::Bool, self.file_id, span.clone())?;
+
+                let (then_type, typed_then) = self.typecheck_expr(then_branch)?;
+                let (else_type, typed_else) = self.typecheck_expr(else_branch)?;
+
+                assert_equal(
+                    then_type.clone(),
+                    else_type.clone(),
+                    self.file_id,
+                    span.clone(),
+                )?;
+
+                Ok((
+                    then_type,
+                    ast::Expr::If {
+                        condition: Box::new(typed_condition),
+                        then_branch: Box::new(typed_then),
+                        else_branch: Box::new(typed_else),
+                        span: span.clone(),
+                    },
+                ))
             }
         }
     }
 
-    pub fn typecheck_stmt(
+    pub fn typecheck_stmt<'b>(
         &mut self,
-        stmt: &ast::Stmt<'a>,
-    ) -> Result<Option<ast::Type<'a>>, TypeError<'a>> {
+        stmt: &'b ast::Stmt<'a>,
+    ) -> Result<(Option<ast::Type<'a>>, ast::Stmt<'a, ast::Type<'a>>), TypeError<'a>> {
         match stmt {
             ast::Stmt::FnDecl {
                 name,
@@ -461,7 +572,7 @@ impl<'a> TypeChecker<'a> {
                     self.env.push_scope();
 
                     // Declare parameters in the new scope
-                    for param in params {
+                    for param in &params {
                         self.env.declare_var(
                             param.name,
                             param.r#type.clone(),
@@ -470,25 +581,41 @@ impl<'a> TypeChecker<'a> {
                     }
 
                     // Typecheck the function body
-                    let actual_return_type = body
+                    let mut typed_body = Vec::new();
+                    for stmt in body {
+                        typed_body.push(self.typecheck_stmt(stmt)?);
+                    }
+
+                    let mut actual_return_types = typed_body
                         .iter()
-                        .map(|stmt| self.typecheck_stmt(stmt))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .next_back()
-                        .flatten()
-                        .unwrap_or(ast::Type::Void);
-                    assert_equal(
-                        return_type.clone(),
-                        actual_return_type,
-                        self.file_id,
-                        span.clone(),
-                    )?;
+                        .filter_map(|(ret_type, _)| ret_type.clone())
+                        .collect::<Vec<_>>();
+                    if actual_return_types.is_empty() {
+                        actual_return_types.push(ast::Type::Void);
+                    }
+
+                    for actual_return_type in &actual_return_types {
+                        assert_equal(
+                            actual_return_type.clone(),
+                            return_type.clone(),
+                            self.file_id,
+                            span.clone(),
+                        )?;
+                    }
 
                     // Pop the scope for the function body
                     self.env.pop_scope();
 
-                    Ok(None)
+                    Ok((
+                        Some(return_type.clone()),
+                        ast::Stmt::FnDecl {
+                            name,
+                            params,
+                            r#type: return_type.clone(),
+                            body: typed_body.into_iter().map(|(_, stmt)| stmt).collect(),
+                            span: span.clone(),
+                        },
+                    ))
                 } else {
                     Err(TypeError {
                         kind: TypeErrorKind::AnnotationNotFound {
@@ -505,24 +632,26 @@ impl<'a> TypeChecker<'a> {
                 value,
                 span,
             } => {
-                let var_type = if let Some(value) = value {
-                    self.typecheck_expr(value)?
-                } else {
-                    r#type.clone().ok_or_else(|| TypeError {
-                        kind: TypeErrorKind::AnnotationNotFound {
-                            message: "Variable type annotation is required".to_string(),
-                        },
-                        file_id: self.file_id,
-                        span: span.clone(),
-                    })?
-                };
-
+                let (actual_value_type, typed_value) = self.typecheck_expr(value)?;
                 if let Some(r#type) = r#type {
-                    assert_equal(var_type.clone(), r#type.clone(), self.file_id, span.clone())?;
+                    assert_equal(
+                        actual_value_type.clone(),
+                        r#type.clone(),
+                        self.file_id,
+                        span.clone(),
+                    )?;
                 }
-
-                self.env.declare_var(name, var_type, span.clone())?;
-                Ok(None)
+                let var_type = r#type.clone().unwrap_or(actual_value_type);
+                self.env.declare_var(name, var_type.clone(), span.clone())?;
+                Ok((
+                    None,
+                    ast::Stmt::LetDecl {
+                        name,
+                        r#type: var_type,
+                        value: typed_value,
+                        span: span.clone(),
+                    },
+                ))
             }
             ast::Stmt::VarDecl {
                 name,
@@ -530,80 +659,91 @@ impl<'a> TypeChecker<'a> {
                 value,
                 span,
             } => {
-                let var_type = if let Some(value) = value {
-                    self.typecheck_expr(value)?
+                let (actual_value_type, typed_value) = if let Some(value) = value {
+                    let (actual_value_type, typed_value) = self.typecheck_expr(value)?;
+                    (actual_value_type, Some(typed_value))
                 } else {
-                    r#type.clone().ok_or_else(|| TypeError {
-                        kind: TypeErrorKind::AnnotationNotFound {
-                            message: "Variable type annotation is required".to_string(),
-                        },
-                        file_id: self.file_id,
-                        span: span.clone(),
-                    })?
+                    (
+                        r#type.clone().ok_or_else(|| TypeError {
+                            kind: TypeErrorKind::AnnotationNotFound {
+                                message: "Variable type annotation is required".to_string(),
+                            },
+                            file_id: self.file_id,
+                            span: span.clone(),
+                        })?,
+                        None,
+                    )
                 };
 
                 if let Some(r#type) = r#type {
-                    assert_equal(var_type.clone(), r#type.clone(), self.file_id, span.clone())?;
+                    assert_equal(
+                        actual_value_type.clone(),
+                        r#type.clone(),
+                        self.file_id,
+                        span.clone(),
+                    )?;
                 }
 
-                self.env.declare_var(name, var_type, span.clone())?;
-                Ok(None)
+                let var_type = r#type.clone().unwrap_or(actual_value_type);
+
+                self.env.declare_var(name, var_type.clone(), span.clone())?;
+                Ok((
+                    None,
+                    ast::Stmt::VarDecl {
+                        name,
+                        r#type: var_type,
+                        value: typed_value,
+                        span: span.clone(),
+                    },
+                ))
             }
             ast::Stmt::Assign { name, value, span } => {
-                let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
-                let value_type = self.typecheck_expr(value)?;
-                assert_equal(var.r#type.clone(), value_type, self.file_id, span.clone())?;
-                Ok(None)
+                let var_type = {
+                    let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
+                    var.r#type.clone()
+                };
+                let (actual_value_type, typed_value) = self.typecheck_expr(value)?;
+                assert_equal(var_type, actual_value_type, self.file_id, span.clone())?;
+                Ok((
+                    None,
+                    ast::Stmt::Assign {
+                        name,
+                        value: Box::new(typed_value),
+                        span: span.clone(),
+                    },
+                ))
             }
-            ast::Stmt::If {
-                condition,
-                then_branch,
-                else_branch,
-                span,
-            } => {
-                let condition_type = self.typecheck_expr(condition)?;
-                assert_equal(condition_type, ast::Type::Bool, self.file_id, span.clone())?;
-
-                // Push a new scope for the then branch
-                self.env.push_scope();
-                for stmt in then_branch {
-                    self.typecheck_stmt(stmt)?;
-                }
-                self.env.pop_scope();
-
-                if let Some(else_branch) = else_branch {
-                    // Push a new scope for the else branch
-                    self.env.push_scope();
-                    for stmt in else_branch {
-                        self.typecheck_stmt(stmt)?;
-                    }
-                    self.env.pop_scope();
-                }
-
-                Ok(None)
-            }
-            ast::Stmt::Return { expr, .. } => {
-                if let Some(expr) = expr {
-                    let return_type = self.typecheck_expr(expr)?;
-                    Ok(Some(return_type))
-                } else {
-                    Ok(None)
-                }
-            }
-            ast::Stmt::ExprStmt { expr, .. } => {
-                self.typecheck_expr(expr)?;
-                Ok(None)
+            ast::Stmt::ExprStmt { expr, span } => {
+                let (_, typed_expr) = self.typecheck_expr(expr)?;
+                Ok((
+                    None,
+                    ast::Stmt::ExprStmt {
+                        expr: Box::new(typed_expr),
+                        span: span.clone(),
+                    },
+                ))
             }
             ast::Stmt::Expr { expr, .. } => {
-                let expr_type = self.typecheck_expr(expr)?;
-                Ok(Some(expr_type))
+                let (actual_expr_type, typed_expr) = self.typecheck_expr(expr)?;
+                Ok((
+                    Some(actual_expr_type),
+                    ast::Stmt::Expr {
+                        expr: Box::new(typed_expr),
+                        span: expr.span().clone(),
+                    },
+                ))
             }
         }
     }
 
-    pub fn typecheck_program(&mut self, program: &ast::Program<'a>) -> Result<(), TypeError<'a>> {
+    pub fn typecheck_program<'b>(
+        &mut self,
+        program: &'b ast::Program<'a>,
+    ) -> Result<ast::Program<'a, ast::Type<'a>>, TypeError<'a>> {
+        let mut typed_functions = Vec::new();
         for function in &program.functions {
             // Convert FnDecl to Stmt::FnDecl for processing
+            // TODO: Improve this by directly typechecking FnDecl
             let stmt = ast::Stmt::FnDecl {
                 name: function.name,
                 params: function.params.clone(),
@@ -611,16 +751,48 @@ impl<'a> TypeChecker<'a> {
                 body: function.body.clone(),
                 span: function.span.clone(),
             };
-            self.typecheck_stmt(&stmt)?;
+            let (_, typed_stmt) = self.typecheck_stmt(&stmt)?;
+            match typed_stmt {
+                ast::Stmt::FnDecl {
+                    name,
+                    params,
+                    r#type,
+                    body,
+                    span,
+                } => {
+                    typed_functions.push(ast::FnDecl {
+                        name,
+                        params,
+                        r#type,
+                        body,
+                        span,
+                    });
+                }
+                _ => {
+                    // Never expected this to happen, as we only process function declarations
+                    return Err(TypeError {
+                        kind: TypeErrorKind::InternalError {
+                            message: "Expected a function declaration".to_string(),
+                        },
+                        file_id: self.file_id,
+                        span: function.span.clone(),
+                    });
+                }
+            }
         }
-        Ok(())
+        Ok(ast::Program {
+            functions: typed_functions,
+        })
     }
 }
 
-pub fn typecheck<'a>(program: &ast::Program<'a>, file_id: &'a str) -> Result<(), TypeError<'a>> {
+#[allow(dead_code)]
+pub fn typecheck<'a>(
+    program: &ast::Program<'a>,
+    file_id: &'a str,
+) -> Result<ast::Program<'a, ast::Type<'a>>, TypeError<'a>> {
     let mut type_checker = TypeChecker::new(file_id);
-    type_checker.typecheck_program(program)?;
-    Ok(())
+    type_checker.typecheck_program(program)
 }
 
 #[cfg(test)]
@@ -629,7 +801,7 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use crate::{
-        parser,
+        ast, parser,
         typechecker::{self, TypeError},
     };
 
@@ -637,7 +809,7 @@ mod tests {
         result.errors().len() == 0
     }
 
-    fn typecheck(source: &str) -> Result<(), TypeError> {
+    fn typecheck(source: &str) -> Result<ast::Program<ast::Type>, TypeError> {
         let parse_result = parser::parse(source);
         assert!(has_no_errors(&parse_result));
 
@@ -650,7 +822,7 @@ mod tests {
     fn test_function_found() {
         let source = indoc! {"
             fn zero() -> i32 {
-                return 0;
+                0
             }
 
             fn main() -> i32 {
@@ -665,7 +837,7 @@ mod tests {
     fn test_function_not_found() {
         let source = indoc! {"
             fn zero() -> i32 {
-                return 0;
+                0
             }
 
             fn main() -> i32 {
@@ -714,14 +886,8 @@ mod tests {
             fn main() -> i32 {
                 let x: i32 = 42;
                 let y: i32 = 43;
-
-                if true {
-                    let x: i32 = 44;
-                } else {
-                    let y: i32 = 45;
-                }
-                
-                x + y
+                let z: i32 = if true { 44 } else { 45 };
+                x + y + z
             }
         "};
         let result = typecheck(source);
@@ -746,11 +912,11 @@ mod tests {
     fn test_duplicate_function_declaration() {
         let source = indoc! {"
             fn add() -> i32 {
-                return 0;
+                0
             }
 
             fn add() -> i32 {
-                return 1;
+                1
             }
         "};
         let result = typecheck(source);
@@ -855,5 +1021,57 @@ mod tests {
             "Type checking should succeed, but got error: {:?}",
             result
         );
+    }
+
+    #[test]
+    fn test_if_return() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                if true { 1 } else { 0 }
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_if_type_mismatch() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                if true { 1 } else { true }
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_if_condition_not_bool() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                if 42 { 1 } else { 0 }
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_if_nested_return() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                if true {
+                    if false {
+                        if true { 1 } else { 1 }
+                    } else {
+                        2
+                    }
+                } else {
+                    3
+                }
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
     }
 }
