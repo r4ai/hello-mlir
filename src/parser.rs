@@ -58,6 +58,26 @@ where
                 span: ast::Span::from(e.span()),
                 r#type: None,
             },
+            Token::TypedIntegerI32(value) = e => ast::Expr::IntLit {
+                value: &value[..value.len() - 4], // Remove "_i32" suffix
+                span: ast::Span::from(e.span()),
+                r#type: Some(ast::Type::I32),
+            },
+            Token::TypedIntegerI64(value) = e => ast::Expr::IntLit {
+                value: &value[..value.len() - 4], // Remove "_i64" suffix
+                span: ast::Span::from(e.span()),
+                r#type: Some(ast::Type::I64),
+            },
+            Token::TypedFloatF32(value) = e => ast::Expr::FloatLit {
+                value: &value[..value.len() - 4], // Remove "_f32" suffix
+                span: ast::Span::from(e.span()),
+                r#type: Some(ast::Type::F32),
+            },
+            Token::TypedFloatF64(value) = e => ast::Expr::FloatLit {
+                value: &value[..value.len() - 4], // Remove "_f64" suffix
+                span: ast::Span::from(e.span()),
+                r#type: Some(ast::Type::F64),
+            },
             Token::Identifier(ident) = e if ident == "true" => ast::Expr::BoolLit {
                 value: true,
                 span: ast::Span::from(e.span())
@@ -820,6 +840,46 @@ mod tests {
     #[test]
     fn test_parse_float_binary_expression() {
         let input = "fn test() -> f32 { 3.14 + 2.71 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_typed_integer_literal_i32() {
+        let input = "fn test() -> i32 { 42_i32 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_typed_integer_literal_i64() {
+        let input = "fn test() -> i64 { 1000_i64 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_typed_float_literal_f32() {
+        let input = "fn test() -> f32 { 3.14_f32 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_typed_float_literal_f64() {
+        let input = "fn test() -> f64 { 2.71828_f64 }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 

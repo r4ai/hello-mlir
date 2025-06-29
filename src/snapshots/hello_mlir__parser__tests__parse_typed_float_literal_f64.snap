@@ -1,0 +1,26 @@
+---
+source: src/parser.rs
+expression: program
+---
+functions:
+  - name: test
+    params: []
+    type: F64
+    body:
+      - Expr:
+          expr:
+            FloatLit:
+              value: "2.71828"
+              span:
+                start: 19
+                end: 30
+                context: ~
+              type: F64
+          span:
+            start: 19
+            end: 30
+            context: ~
+    span:
+      start: 0
+      end: 32
+      context: ~
