@@ -782,67 +782,6 @@ impl<'a> TypeChecker<'a> {
             functions: typed_functions,
         })
     }
-
-    // Helper method to handle type coercion for binary operations
-    fn try_coerce_binary_types(
-        &self,
-        lhs_type: ast::Type<'a>,
-        rhs_type: ast::Type<'a>,
-        lhs: ast::Expr<'a, ast::Type<'a>>,
-        rhs: ast::Expr<'a, ast::Type<'a>>,
-    ) -> Result<
-        (
-            ast::Type<'a>,
-            ast::Type<'a>,
-            ast::Expr<'a, ast::Type<'a>>,
-            ast::Expr<'a, ast::Type<'a>>,
-        ),
-        TypeError<'a>,
-    > {
-        match (&lhs_type, &rhs_type, &lhs, &rhs) {
-            // If types already match, no coercion needed
-            (_, _, _, _) if lhs_type == rhs_type => Ok((lhs_type, rhs_type, lhs, rhs)),
-
-            // Coerce RHS float literal to match LHS type
-            (ast::Type::F32, ast::Type::F64, _, ast::Expr::FloatLit { value, span, .. }) => {
-                let coerced_rhs = ast::Expr::FloatLit {
-                    value,
-                    span: span.clone(),
-                    r#type: ast::Type::F32,
-                };
-                Ok((ast::Type::F32, ast::Type::F32, lhs, coerced_rhs))
-            }
-            (ast::Type::F64, ast::Type::F32, _, ast::Expr::FloatLit { value, span, .. }) => {
-                let coerced_rhs = ast::Expr::FloatLit {
-                    value,
-                    span: span.clone(),
-                    r#type: ast::Type::F64,
-                };
-                Ok((ast::Type::F64, ast::Type::F64, lhs, coerced_rhs))
-            }
-
-            // Coerce LHS float literal to match RHS type
-            (ast::Type::F64, ast::Type::F32, ast::Expr::FloatLit { value, span, .. }, _) => {
-                let coerced_lhs = ast::Expr::FloatLit {
-                    value,
-                    span: span.clone(),
-                    r#type: ast::Type::F32,
-                };
-                Ok((ast::Type::F32, ast::Type::F32, coerced_lhs, rhs))
-            }
-            (ast::Type::F32, ast::Type::F64, ast::Expr::FloatLit { value, span, .. }, _) => {
-                let coerced_lhs = ast::Expr::FloatLit {
-                    value,
-                    span: span.clone(),
-                    r#type: ast::Type::F64,
-                };
-                Ok((ast::Type::F64, ast::Type::F64, coerced_lhs, rhs))
-            }
-
-            // No coercion possible, return original types
-            _ => Ok((lhs_type, rhs_type, lhs, rhs)),
-        }
-    }
 }
 
 #[allow(dead_code)]

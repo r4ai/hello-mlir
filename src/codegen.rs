@@ -12,7 +12,7 @@ use melior::{
     pass::{PassManager, conversion},
     utility::register_all_dialects,
 };
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 
 struct Variable<'c> {
     #[allow(dead_code)]
@@ -1192,15 +1192,14 @@ mod tests {
                     }],
                 };
 
-                let result = codegen.generate(&program).expect(
-                    format!(
+                let result = codegen.generate(&program).unwrap_or_else(|_| {
+                    panic!(
                         "Failed to generate code for operation: {} {} {}",
                         lhs.r#type(),
                         op,
                         rhs.r#type()
                     )
-                    .as_str(),
-                );
+                });
 
                 let value_type = match lhs {
                     Expr::IntLit { ref r#type, .. } => r#type,
@@ -1237,7 +1236,7 @@ mod tests {
                     _ => panic!("Unsupported operation: {}", op),
                 };
                 assert!(
-                    result.contains(&expected_op),
+                    result.contains(expected_op),
                     "Expected operation {expected_op} not found in result:\n{result}",
                 );
 
