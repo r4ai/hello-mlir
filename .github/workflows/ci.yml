@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        task: [test, clippy, build]
+      fail-fast: false
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup mise
+        uses: jdx/mise-action@bb86feacf6eb957c0a295df514530390b68009a4 # v2.2.3
+        with:
+          install: true
+          cache: true
+
+      - name: Add LLVM APT repository
+        run: |
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/llvm-snapshot.asc > /dev/null
+          echo "deb [signed-by=/etc/apt/trusted.gpg.d/llvm-snapshot.asc] http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+
+      - name: Install LLVM and Clang
+        run: |
+          sudo apt-get install -y llvm-20-dev libclang-20-dev
+          llvm-config-20 --version
+          which llvm-config-20
+          llvm-config --version
+          which llvm-config
+
+      - name: Run tests
+        if: matrix.task == 'test'
+        run: cargo test --all-targets
+
+      - name: Run clippy
+        if: matrix.task == 'clippy'
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets -- -D warnings
+
+      - name: Run build
+        if: matrix.task == 'build'
+        run: cargo build --all-targets
