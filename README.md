@@ -42,30 +42,32 @@ For a detailed guide, please see the [Syntax and Grammar Documentation](./docs/s
     ```sh
     mise run build
     ```
-    The executable will be available at `target/release/hello-mlir-bob`.
+    The executable will be available at `target/release/hello-mlir`.
 
 ## Usage
 
-The compiler can be run in two modes:
+The compiler can be run directly using `cargo run`. It accepts a source file and can be run in two modes:
 
-1.  **AST Output (`--mode ast`)**: Parses the code, type-checks it, and prints the Abstract Syntax Tree (AST) as YAML.
+1.  **AST Output (`--mode ast`)**: Parses the code, type-checks it, and prints the Abstract Syntax Tree (AST) as YAML to standard output.
 
     ```sh
-    ./target/release/hello-mlir-bob samples/main.txt --mode ast
+    cargo run -- samples/main.txt --mode ast
     ```
 
-2.  **Machine Code Generation (`--mode machine-code`)**: Compiles the code down to a native executable (`a.out`).
+2.  **Machine Code Generation (`--mode machine-code`)**: Compiles the code down to a native executable. Use the `--output` flag to specify the name of the executable file.
 
     ```sh
-    # Compile the source file
-    ./target/release/hello-mlir-bob samples/main.txt --mode machine-code
+    # Compile the source file and create an executable named 'main'
+    cargo run -- samples/main.txt --mode machine-code --output main
 
     # Run the generated executable
-    ./a.out
+    ./main
 
     # Check the exit code
     echo $?
     ```
+
+    If the `--output` flag is omitted, the generated MLIR code will be printed to standard output.
 
 ## Testing
 
