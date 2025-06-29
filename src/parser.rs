@@ -91,6 +91,7 @@ where
         // variable reference (identifier as expression)
         let var_ref = identifier.map_with(|name, e| ast::Expr::VarRef {
             name,
+            r#type: None,
             span: ast::Span::from(e.span()),
         });
 
@@ -108,6 +109,7 @@ where
                 .map_with(|(name, args), e| ast::Expr::FnCall {
                     name,
                     args,
+                    r#type: None,
                     span: ast::Span::from(e.span()),
                 });
 
@@ -125,6 +127,7 @@ where
                 condition: Box::new(condition),
                 then_branch: Box::new(then_branch),
                 else_branch: Box::new(else_branch),
+                r#type: None,
                 span: ast::Span::from(e.span()),
             });
 

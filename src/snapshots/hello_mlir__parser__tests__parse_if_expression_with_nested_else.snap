@@ -44,6 +44,7 @@ functions:
                         end: 89
                         context: ~
                       type: ~
+                  type: ~
                   span:
                     start: 38
                     end: 99
@@ -56,6 +57,7 @@ functions:
                     end: 122
                     context: ~
                   type: ~
+              type: ~
               span:
                 start: 23
                 end: 128

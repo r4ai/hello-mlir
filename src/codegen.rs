@@ -12,7 +12,7 @@ use melior::{
     pass::{PassManager, conversion},
     utility::register_all_dialects,
 };
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 struct Variable<'c> {
     #[allow(dead_code)]
@@ -99,7 +99,10 @@ impl<'c> CodeGenerator<'c> {
 
         // Verify the module
         if !self.module.as_operation().verify() {
-            return Err(anyhow::anyhow!("Generated MLIR module failed verification"));
+            return Err(anyhow::anyhow!(
+                "Generated MLIR module failed verification:\n{}",
+                self.module.as_operation()
+            ));
         }
 
         Ok(format!("{}", self.module.as_operation()))
@@ -233,6 +236,20 @@ impl<'c> CodeGenerator<'c> {
                 ));
                 Ok(const_op.result(0)?.into())
             }
+            ast::Expr::FloatLit { value, r#type, .. } => {
+                let float_type = self.ast_type_to_mlir_type(r#type)?;
+                let const_op = block.append_operation(arith::constant(
+                    self.context,
+                    melior::ir::attribute::FloatAttribute::new(
+                        self.context,
+                        float_type,
+                        value.parse::<f64>()?,
+                    )
+                    .into(),
+                    self.location,
+                ));
+                Ok(const_op.result(0)?.into())
+            }
             ast::Expr::BoolLit { value, .. } => {
                 let bool_val = if *value { 1 } else { 0 };
                 let const_op = block.append_operation(arith::constant(
@@ -247,22 +264,67 @@ impl<'c> CodeGenerator<'c> {
                 Ok(const_op.result(0)?.into())
             }
             ast::Expr::BinOp { lhs, op, rhs, .. } => {
+                let value_type = lhs.as_ref().r#type();
                 let lhs_val = self.generate_expression(block, lhs)?;
                 let rhs_val = self.generate_expression(block, rhs)?;
 
+                let add_op = || match value_type {
+                    &ast::Type::I32 | &ast::Type::I64 => {
+                        arith::addi(lhs_val, rhs_val, self.location)
+                    }
+                    &ast::Type::F32 | &ast::Type::F64 => {
+                        arith::addf(lhs_val, rhs_val, self.location)
+                    }
+                    _ => {
+                        // Never panic here, because we have already type-checked
+                        panic!("Unsupported type for binary operation: {:?}", value_type)
+                    }
+                };
+
+                let sub_op = || match value_type {
+                    &ast::Type::I32 | &ast::Type::I64 => {
+                        arith::subi(lhs_val, rhs_val, self.location)
+                    }
+                    &ast::Type::F32 | &ast::Type::F64 => {
+                        arith::subf(lhs_val, rhs_val, self.location)
+                    }
+                    _ => {
+                        // Never panic here, because we have already type-checked
+                        panic!("Unsupported type for binary operation: {:?}", value_type)
+                    }
+                };
+
+                let mul_op = || match value_type {
+                    &ast::Type::I32 | &ast::Type::I64 => {
+                        arith::muli(lhs_val, rhs_val, self.location)
+                    }
+                    &ast::Type::F32 | &ast::Type::F64 => {
+                        arith::mulf(lhs_val, rhs_val, self.location)
+                    }
+                    _ => {
+                        // Never panic here, because we have already type-checked
+                        panic!("Unsupported type for binary operation: {:?}", value_type)
+                    }
+                };
+
+                let div_op = || match value_type {
+                    &ast::Type::I32 | &ast::Type::I64 => {
+                        arith::divsi(lhs_val, rhs_val, self.location)
+                    }
+                    &ast::Type::F32 | &ast::Type::F64 => {
+                        arith::divf(lhs_val, rhs_val, self.location)
+                    }
+                    _ => {
+                        // Never panic here, because we have already type-checked
+                        panic!("Unsupported type for binary operation: {:?}", value_type)
+                    }
+                };
+
                 let result_op = match op {
-                    ast::BinOp::Add => {
-                        block.append_operation(arith::addi(lhs_val, rhs_val, self.location))
-                    }
-                    ast::BinOp::Sub => {
-                        block.append_operation(arith::subi(lhs_val, rhs_val, self.location))
-                    }
-                    ast::BinOp::Mul => {
-                        block.append_operation(arith::muli(lhs_val, rhs_val, self.location))
-                    }
-                    ast::BinOp::Div => {
-                        block.append_operation(arith::divsi(lhs_val, rhs_val, self.location))
-                    }
+                    ast::BinOp::Add => block.append_operation(add_op()),
+                    ast::BinOp::Sub => block.append_operation(sub_op()),
+                    ast::BinOp::Mul => block.append_operation(mul_op()),
+                    ast::BinOp::Div => block.append_operation(div_op()),
                     ast::BinOp::Equal => block.append_operation(arith::cmpi(
                         self.context,
                         arith::CmpiPredicate::Eq,
@@ -351,17 +413,21 @@ impl<'c> CodeGenerator<'c> {
                 }
             }
             ast::Expr::VarRef { name, .. } => self.variables.lookup_var(name),
-            ast::Expr::FnCall { name, args, .. } => {
+            ast::Expr::FnCall {
+                name, args, r#type, ..
+            } => {
                 let mut arg_values = Vec::new();
                 for arg in args {
                     arg_values.push(self.generate_expression(block, arg)?);
                 }
 
+                let result_type = self.ast_type_to_mlir_type(r#type)?;
+
                 let call_op = block.append_operation(func::call(
                     self.context,
                     FlatSymbolRefAttribute::new(self.context, name),
                     &arg_values,
-                    &[IntegerType::new(self.context, 32).into()], // TODO: Use real type
+                    &[result_type],
                     self.location,
                 ));
                 Ok(call_op.result(0)?.into())
@@ -562,6 +628,7 @@ pub fn generate_code(
 mod tests {
     use super::*;
     use crate::ast::{BinOp, Expr, FnDecl, FnParam, Span, Stmt, Type, UnaryOp};
+    use regex::Regex;
 
     fn create_span() -> Span {
         Span {
@@ -681,11 +748,13 @@ mod tests {
                     expr: Box::new(Expr::BinOp {
                         lhs: Box::new(Expr::VarRef {
                             name: "a",
+                            r#type: Type::I32,
                             span: create_span(),
                         }),
                         op: BinOp::Add,
                         rhs: Box::new(Expr::VarRef {
                             name: "b",
+                            r#type: Type::I32,
                             span: create_span(),
                         }),
                         span: create_span(),
@@ -824,6 +893,7 @@ mod tests {
                     Stmt::Expr {
                         expr: Box::new(Expr::VarRef {
                             name: "x",
+                            r#type: Type::I32,
                             span: create_span(),
                         }),
                         span: create_span(),
@@ -883,6 +953,7 @@ mod tests {
                                 span: create_span(),
                                 r#type: Type::I32,
                             }),
+                            r#type: Type::I32,
                             span: create_span(),
                         }),
                         span: create_span(),
@@ -916,6 +987,7 @@ mod tests {
                     body: vec![Stmt::Expr {
                         expr: Box::new(Expr::VarRef {
                             name: "x",
+                            r#type: Type::I32,
                             span: create_span(),
                         }),
                         span: create_span(),
@@ -933,6 +1005,7 @@ mod tests {
                     body: vec![Stmt::Expr {
                         expr: Box::new(Expr::VarRef {
                             name: "x",
+                            r#type: Type::I32,
                             span: create_span(),
                         }),
                         span: create_span(),
@@ -973,6 +1046,7 @@ mod tests {
                             span: create_span(),
                             r#type: Type::I32,
                         }),
+                        r#type: Type::I32,
                         span: create_span(),
                     }),
                     span: create_span(),
@@ -1022,6 +1096,7 @@ mod tests {
                             span: create_span(),
                             r#type: Type::I32,
                         }),
+                        r#type: Type::I32,
                         span: create_span(),
                     }),
                     span: create_span(),
@@ -1037,5 +1112,142 @@ mod tests {
         println!("Generated MLIR: {}", result);
         // For now, just check that it contains basic function structure
         assert!(result.contains("@main"));
+    }
+
+    #[test]
+    fn test_arithmetic_operations_with_types() {
+        let lhs_rhs = vec![
+            (
+                Expr::IntLit {
+                    value: "5",
+                    span: create_span(),
+                    r#type: Type::I32,
+                },
+                Expr::IntLit {
+                    value: "3",
+                    span: create_span(),
+                    r#type: Type::I32,
+                },
+            ),
+            (
+                Expr::IntLit {
+                    value: "10",
+                    span: create_span(),
+                    r#type: Type::I64,
+                },
+                Expr::IntLit {
+                    value: "20",
+                    span: create_span(),
+                    r#type: Type::I64,
+                },
+            ),
+            (
+                Expr::FloatLit {
+                    value: "3.14",
+                    span: create_span(),
+                    r#type: Type::F32,
+                },
+                Expr::FloatLit {
+                    value: "2.71",
+                    span: create_span(),
+                    r#type: Type::F32,
+                },
+            ),
+            (
+                Expr::FloatLit {
+                    value: "1.35",
+                    span: create_span(),
+                    r#type: Type::F64,
+                },
+                Expr::FloatLit {
+                    value: "2.68",
+                    span: create_span(),
+                    r#type: Type::F64,
+                },
+            ),
+        ];
+        let ops = vec![BinOp::Add, BinOp::Sub, BinOp::Mul, BinOp::Div];
+
+        for (lhs, rhs) in lhs_rhs {
+            for op in &ops {
+                let context = create_test_context();
+                let mut codegen = CodeGenerator::new(&context);
+
+                // Create a function that performs the operation
+                let program = ast::Program {
+                    functions: vec![FnDecl {
+                        name: "test",
+                        params: vec![],
+                        r#type: lhs.r#type().clone(),
+                        body: vec![Stmt::Expr {
+                            expr: Box::new(Expr::BinOp {
+                                lhs: Box::new(lhs.clone()),
+                                op: op.clone(),
+                                rhs: Box::new(rhs.clone()),
+                                span: create_span(),
+                            }),
+                            span: create_span(),
+                        }],
+                        span: create_span(),
+                    }],
+                };
+
+                let result = codegen.generate(&program).expect(
+                    format!(
+                        "Failed to generate code for operation: {} {} {}",
+                        lhs.r#type(),
+                        op,
+                        rhs.r#type()
+                    )
+                    .as_str(),
+                );
+
+                let value_type = match lhs {
+                    Expr::IntLit { ref r#type, .. } => r#type,
+                    Expr::FloatLit { ref r#type, .. } => r#type,
+                    _ => panic!("Unexpected expression type"),
+                };
+
+                assert!(
+                    result.contains("func.func @test"),
+                    "Expected function definition for test not found in result:\n{result}"
+                );
+
+                let expected_op = match op {
+                    BinOp::Add => match value_type {
+                        Type::I32 | Type::I64 => "arith.addi",
+                        Type::F32 | Type::F64 => "arith.addf",
+                        _ => panic!("Unsupported type for addition: {}", value_type),
+                    },
+                    BinOp::Sub => match value_type {
+                        Type::I32 | Type::I64 => "arith.subi",
+                        Type::F32 | Type::F64 => "arith.subf",
+                        _ => panic!("Unsupported type for subtraction: {}", value_type),
+                    },
+                    BinOp::Mul => match value_type {
+                        Type::I32 | Type::I64 => "arith.muli",
+                        Type::F32 | Type::F64 => "arith.mulf",
+                        _ => panic!("Unsupported type for multiplication: {}", value_type),
+                    },
+                    BinOp::Div => match value_type {
+                        Type::I32 | Type::I64 => "arith.divsi",
+                        Type::F32 | Type::F64 => "arith.divf",
+                        _ => panic!("Unsupported type for division: {}", value_type),
+                    },
+                    _ => panic!("Unsupported operation: {}", op),
+                };
+                assert!(
+                    result.contains(&expected_op),
+                    "Expected operation {expected_op} not found in result:\n{result}",
+                );
+
+                let re_return_value_with_type =
+                    Regex::new(&format!(r"return\s+%[a-zA-Z0-9_]+\s*:\s*{value_type}")).unwrap();
+                assert!(
+                    re_return_value_with_type.is_match(&result),
+                    "Expected return value with type {value_type} not found in result:\n{result}"
+                );
+            }
+        }
     }
 }

@@ -429,7 +429,9 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            ast::Expr::FnCall { name, args, span } => {
+            ast::Expr::FnCall {
+                name, args, span, ..
+            } => {
                 let (return_type, params) = {
                     let fn_to_call = self.env.lookup_fn(name, span.clone())?;
                     match &fn_to_call.r#type {
@@ -465,20 +467,22 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 Ok((
-                    return_type,
+                    return_type.clone(),
                     ast::Expr::FnCall {
                         name,
                         args: typed_args.into_iter().map(|(_, arg)| arg).collect(),
+                        r#type: return_type,
                         span: span.clone(),
                     },
                 ))
             }
-            ast::Expr::VarRef { name, span } => {
+            ast::Expr::VarRef { name, span, .. } => {
                 let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
                 Ok((
                     var.r#type.clone(),
                     ast::Expr::VarRef {
                         name,
+                        r#type: var.r#type.clone(),
                         span: span.clone(),
                     },
                 ))
@@ -488,6 +492,7 @@ impl<'a> TypeChecker<'a> {
                 then_branch,
                 else_branch,
                 span,
+                ..
             } => {
                 let (condition_type, typed_condition) = self.typecheck_expr(condition)?;
                 assert_equal(condition_type, ast::Type::Bool, self.file_id, span.clone())?;
@@ -503,11 +508,12 @@ impl<'a> TypeChecker<'a> {
                 )?;
 
                 Ok((
-                    then_type,
+                    then_type.clone(),
                     ast::Expr::If {
                         condition: Box::new(typed_condition),
                         then_branch: Box::new(typed_then),
                         else_branch: Box::new(typed_else),
+                        r#type: then_type,
                         span: span.clone(),
                     },
                 ))
