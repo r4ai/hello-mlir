@@ -1,9 +1,10 @@
 [tools]
 "cargo:cargo-insta" = "1.42.2"
+"cargo:cargo-llvm-cov" = "latest"
 deno = "2.3.6"
 lefthook = "latest"
 mold = "2.37.1"
-rust = "1.87.0"
+rust = { version = "1.87.0", components = "llvm-tools-preview" }
 
 [hooks]
 postinstall = """\
