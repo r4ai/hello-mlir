@@ -67,14 +67,17 @@ functions:
                             end: 183
                             context: ~
                           type: ~
+                      type: ~
                       span:
                         start: 117
                         end: 197
                         context: ~
+                  type: ~
                   span:
                     start: 64
                     end: 207
                     context: ~
+              type: ~
               span:
                 start: 23
                 end: 213

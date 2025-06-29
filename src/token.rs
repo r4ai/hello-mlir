@@ -28,6 +28,21 @@ pub enum Token<'a> {
     #[regex(r"[0-9]+")]
     Integer(&'a str),
 
+    #[regex(r"[0-9]+\.[0-9]+")]
+    Float(&'a str),
+
+    #[regex(r"[0-9]+_i32")]
+    TypedIntegerI32(&'a str),
+
+    #[regex(r"[0-9]+_i64")]
+    TypedIntegerI64(&'a str),
+
+    #[regex(r"[0-9]+\.[0-9]+_f32")]
+    TypedFloatF32(&'a str),
+
+    #[regex(r"[0-9]+\.[0-9]+_f64")]
+    TypedFloatF64(&'a str),
+
     #[token("+")]
     Add,
 
@@ -115,6 +130,11 @@ impl std::fmt::Display for Token<'_> {
             Self::Else => write!(f, "else"),
             Self::Identifier(value) => write!(f, "{value}"),
             Self::Integer(value) => write!(f, "{value}"),
+            Self::Float(value) => write!(f, "{value}"),
+            Self::TypedIntegerI32(value) => write!(f, "{value}"),
+            Self::TypedIntegerI64(value) => write!(f, "{value}"),
+            Self::TypedFloatF32(value) => write!(f, "{value}"),
+            Self::TypedFloatF64(value) => write!(f, "{value}"),
             Self::Add => write!(f, "+"),
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),

@@ -33,6 +33,7 @@ functions:
                     end: 42
                     context: ~
                   type: ~
+              type: ~
               span:
                 start: 19
                 end: 44

@@ -253,14 +253,32 @@ impl<'a> TypeChecker<'a> {
                 span,
                 r#type,
                 value,
-            } => Ok((
-                ast::Type::I32,
-                ast::Expr::IntLit {
-                    value,
-                    span: span.clone(),
-                    r#type: r#type.clone().unwrap_or(ast::Type::I32),
-                },
-            )),
+            } => {
+                let inferred_type = r#type.clone().unwrap_or(ast::Type::I32); // Default to I32
+                Ok((
+                    inferred_type.clone(),
+                    ast::Expr::IntLit {
+                        value,
+                        span: span.clone(),
+                        r#type: inferred_type,
+                    },
+                ))
+            }
+            ast::Expr::FloatLit {
+                span,
+                r#type,
+                value,
+            } => {
+                let inferred_type = r#type.clone().unwrap_or(ast::Type::F64); // Default to F64
+                Ok((
+                    inferred_type.clone(),
+                    ast::Expr::FloatLit {
+                        value,
+                        span: span.clone(),
+                        r#type: inferred_type,
+                    },
+                ))
+            }
             ast::Expr::BoolLit { span, value } => Ok((
                 ast::Type::Bool,
                 ast::Expr::BoolLit {
@@ -271,14 +289,14 @@ impl<'a> TypeChecker<'a> {
             ast::Expr::BinOp { lhs, op, rhs, span } => {
                 let (lhs_type, lhs) = self.typecheck_expr(lhs)?;
                 let (rhs_type, rhs) = self.typecheck_expr(rhs)?;
+                assert_equal(
+                    lhs_type.clone(),
+                    rhs_type.clone(),
+                    self.file_id,
+                    span.clone(),
+                )?;
                 match op {
                     ast::BinOp::Add | ast::BinOp::Sub | ast::BinOp::Mul | ast::BinOp::Div => {
-                        assert_equal(
-                            lhs_type.clone(),
-                            rhs_type.clone(),
-                            self.file_id,
-                            span.clone(),
-                        )?;
                         match lhs_type {
                             ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => {
                                 Ok((
@@ -303,96 +321,70 @@ impl<'a> TypeChecker<'a> {
                             }),
                         }
                     }
-                    ast::BinOp::Equal | ast::BinOp::NotEqual => {
-                        assert_equal(
-                            lhs_type.clone(),
-                            rhs_type.clone(),
-                            self.file_id,
-                            span.clone(),
-                        )?;
-                        match lhs_type {
-                            ast::Type::I32
-                            | ast::Type::I64
-                            | ast::Type::F32
-                            | ast::Type::F64
-                            | ast::Type::Bool => Ok((
-                                ast::Type::Bool,
-                                ast::Expr::BinOp {
-                                    lhs: Box::new(lhs),
-                                    op: op.clone(),
-                                    rhs: Box::new(rhs),
-                                    span: span.clone(),
-                                },
-                            )),
-                            _ => Err(TypeError {
-                                kind: TypeErrorKind::InvalidOperation {
-                                    message: format!("Cannot compare type: {:?}", lhs_type),
-                                },
-                                file_id: self.file_id,
+                    ast::BinOp::Equal | ast::BinOp::NotEqual => match lhs_type {
+                        ast::Type::I32
+                        | ast::Type::I64
+                        | ast::Type::F32
+                        | ast::Type::F64
+                        | ast::Type::Bool => Ok((
+                            ast::Type::Bool,
+                            ast::Expr::BinOp {
+                                lhs: Box::new(lhs),
+                                op: op.clone(),
+                                rhs: Box::new(rhs),
                                 span: span.clone(),
-                            }),
-                        }
-                    }
+                            },
+                        )),
+                        _ => Err(TypeError {
+                            kind: TypeErrorKind::InvalidOperation {
+                                message: format!("Cannot compare type: {:?}", lhs_type),
+                            },
+                            file_id: self.file_id,
+                            span: span.clone(),
+                        }),
+                    },
                     ast::BinOp::GreaterThan
                     | ast::BinOp::GreaterThanOrEqual
                     | ast::BinOp::LessThan
-                    | ast::BinOp::LessThanOrEqual => {
-                        assert_equal(
-                            lhs_type.clone(),
-                            rhs_type.clone(),
-                            self.file_id,
-                            span.clone(),
-                        )?;
-                        match lhs_type {
-                            ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => {
-                                Ok((
-                                    ast::Type::Bool,
-                                    ast::Expr::BinOp {
-                                        lhs: Box::new(lhs),
-                                        op: op.clone(),
-                                        rhs: Box::new(rhs),
-                                        span: span.clone(),
-                                    },
-                                ))
-                            }
-                            _ => Err(TypeError {
-                                kind: TypeErrorKind::InvalidOperation {
-                                    message: format!("Cannot compare type: {:?}", lhs_type),
-                                },
-                                file_id: self.file_id,
+                    | ast::BinOp::LessThanOrEqual => match lhs_type {
+                        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 => Ok((
+                            ast::Type::Bool,
+                            ast::Expr::BinOp {
+                                lhs: Box::new(lhs),
+                                op: op.clone(),
+                                rhs: Box::new(rhs),
                                 span: span.clone(),
-                            }),
-                        }
-                    }
-                    ast::BinOp::And | ast::BinOp::Or => {
-                        assert_equal(
-                            lhs_type.clone(),
-                            rhs_type.clone(),
-                            self.file_id,
-                            span.clone(),
-                        )?;
-                        match lhs_type {
-                            ast::Type::Bool => Ok((
-                                ast::Type::Bool,
-                                ast::Expr::BinOp {
-                                    lhs: Box::new(lhs),
-                                    op: op.clone(),
-                                    rhs: Box::new(rhs),
-                                    span: span.clone(),
-                                },
-                            )),
-                            _ => Err(TypeError {
-                                kind: TypeErrorKind::InvalidOperation {
-                                    message: format!(
-                                        "Cannot perform logical operation on type: {:?}",
-                                        lhs_type
-                                    ),
-                                },
-                                file_id: self.file_id,
+                            },
+                        )),
+                        _ => Err(TypeError {
+                            kind: TypeErrorKind::InvalidOperation {
+                                message: format!("Cannot compare type: {:?}", lhs_type),
+                            },
+                            file_id: self.file_id,
+                            span: span.clone(),
+                        }),
+                    },
+                    ast::BinOp::And | ast::BinOp::Or => match lhs_type {
+                        ast::Type::Bool => Ok((
+                            ast::Type::Bool,
+                            ast::Expr::BinOp {
+                                lhs: Box::new(lhs),
+                                op: op.clone(),
+                                rhs: Box::new(rhs),
                                 span: span.clone(),
-                            }),
-                        }
-                    }
+                            },
+                        )),
+                        _ => Err(TypeError {
+                            kind: TypeErrorKind::InvalidOperation {
+                                message: format!(
+                                    "Cannot perform logical operation on type: {:?}",
+                                    lhs_type
+                                ),
+                            },
+                            file_id: self.file_id,
+                            span: span.clone(),
+                        }),
+                    },
                 }
             }
             ast::Expr::UnaryOp { op, expr, span } => {
@@ -437,7 +429,9 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            ast::Expr::FnCall { name, args, span } => {
+            ast::Expr::FnCall {
+                name, args, span, ..
+            } => {
                 let (return_type, params) = {
                     let fn_to_call = self.env.lookup_fn(name, span.clone())?;
                     match &fn_to_call.r#type {
@@ -473,20 +467,22 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 Ok((
-                    return_type,
+                    return_type.clone(),
                     ast::Expr::FnCall {
                         name,
                         args: typed_args.into_iter().map(|(_, arg)| arg).collect(),
+                        r#type: return_type,
                         span: span.clone(),
                     },
                 ))
             }
-            ast::Expr::VarRef { name, span } => {
+            ast::Expr::VarRef { name, span, .. } => {
                 let var = self.env.lookup_var(name, ast::Type::Void, span.clone())?;
                 Ok((
                     var.r#type.clone(),
                     ast::Expr::VarRef {
                         name,
+                        r#type: var.r#type.clone(),
                         span: span.clone(),
                     },
                 ))
@@ -496,6 +492,7 @@ impl<'a> TypeChecker<'a> {
                 then_branch,
                 else_branch,
                 span,
+                ..
             } => {
                 let (condition_type, typed_condition) = self.typecheck_expr(condition)?;
                 assert_equal(condition_type, ast::Type::Bool, self.file_id, span.clone())?;
@@ -511,11 +508,12 @@ impl<'a> TypeChecker<'a> {
                 )?;
 
                 Ok((
-                    then_type,
+                    then_type.clone(),
                     ast::Expr::If {
                         condition: Box::new(typed_condition),
                         then_branch: Box::new(typed_then),
                         else_branch: Box::new(typed_else),
+                        r#type: then_type,
                         span: span.clone(),
                     },
                 ))
@@ -633,10 +631,10 @@ impl<'a> TypeChecker<'a> {
                 span,
             } => {
                 let (actual_value_type, typed_value) = self.typecheck_expr(value)?;
-                if let Some(r#type) = r#type {
+                if let Some(expected_value_type) = r#type {
                     assert_equal(
                         actual_value_type.clone(),
-                        r#type.clone(),
+                        expected_value_type.clone(),
                         self.file_id,
                         span.clone(),
                     )?;
@@ -1073,5 +1071,168 @@ mod tests {
         "};
         let result = typecheck(source);
         assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_int_literal_i32() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let y: i32 = 42;
+                let x: i32 = 42_i32;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_int_literal_i64() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: i64 = 10000000000_i64;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_type_mismatch_i64_to_i32() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: i32 = 10000000000_i64; // This should cause a type error
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_type_mismatch_i32_to_i64() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: i64 = 42_i32; // This should cause a type error
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_float_literal_f32() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f32 = 3.14_f32;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_float_literal_f64() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f64 = 3.14;
+                let y: f64 = 3.14_f64;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_float_arithmetic_operations() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f64 = 3.14 + 2.71;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_float_comparison_operations() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: bool = 3.14 > 2.71;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_float_unary_negation() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f64 = -3.14;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_float_type_mismatch_f32_to_f64() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f64 = 3.14_f32; // This should cause a type error
+                0
+            }
+        "};
+        let result = typecheck(source);
+        dbg!(&result);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_float_type_mismatch_f64_to_f32() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f32 = 3.14_f64; // This should cause a type error
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_float_function_with_parameters() {
+        let source = indoc! {"
+            fn add_floats(a: f64, b: f64) -> f64 {
+                a + b
+            }
+            
+            fn main() -> i32 {
+                let x: f64 = add_floats(3.14, 2.71);
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_mixed_int_float_error() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                let x: f32 = 3.14 + 42;
+                0
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
     }
 }

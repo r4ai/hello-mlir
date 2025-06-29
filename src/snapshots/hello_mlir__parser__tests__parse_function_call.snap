@@ -33,6 +33,7 @@ functions:
             FnCall:
               name: zero
               args: []
+              type: ~
               span:
                 start: 42
                 end: 48

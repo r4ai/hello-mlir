@@ -26,6 +26,7 @@ functions:
           expr:
             VarRef:
               name: x
+              type: ~
               span:
                 start: 36
                 end: 37

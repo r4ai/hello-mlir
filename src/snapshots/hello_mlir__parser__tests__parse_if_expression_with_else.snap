@@ -34,6 +34,7 @@ functions:
                     end: 38
                     context: ~
                   type: ~
+              type: ~
               span:
                 start: 19
                 end: 40

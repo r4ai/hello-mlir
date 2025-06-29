@@ -43,6 +43,7 @@ functions:
               lhs:
                 VarRef:
                   name: a
+                  type: ~
                   span:
                     start: 224
                     end: 225
@@ -51,6 +52,7 @@ functions:
               rhs:
                 VarRef:
                   name: b
+                  type: ~
                   span:
                     start: 228
                     end: 229

@@ -1,0 +1,26 @@
+---
+source: src/parser.rs
+expression: program
+---
+functions:
+  - name: test
+    params: []
+    type: I64
+    body:
+      - Expr:
+          expr:
+            IntLit:
+              value: "1000"
+              span:
+                start: 19
+                end: 27
+                context: ~
+              type: I64
+          span:
+            start: 19
+            end: 27
+            context: ~
+    span:
+      start: 0
+      end: 29
+      context: ~

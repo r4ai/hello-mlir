@@ -67,6 +67,7 @@ functions:
               lhs:
                 VarRef:
                   name: x
+                  type: ~
                   span:
                     start: 77
                     end: 78
@@ -75,6 +76,7 @@ functions:
               rhs:
                 VarRef:
                   name: y
+                  type: ~
                   span:
                     start: 81
                     end: 82

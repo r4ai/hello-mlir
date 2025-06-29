@@ -1,0 +1,41 @@
+---
+source: src/parser.rs
+expression: program
+---
+functions:
+  - name: test
+    params: []
+    type: F32
+    body:
+      - Expr:
+          expr:
+            BinOp:
+              lhs:
+                FloatLit:
+                  value: "3.14"
+                  span:
+                    start: 19
+                    end: 23
+                    context: ~
+                  type: ~
+              op: Add
+              rhs:
+                FloatLit:
+                  value: "2.71"
+                  span:
+                    start: 26
+                    end: 30
+                    context: ~
+                  type: ~
+              span:
+                start: 19
+                end: 30
+                context: ~
+          span:
+            start: 19
+            end: 30
+            context: ~
+    span:
+      start: 0
+      end: 32
+      context: ~
