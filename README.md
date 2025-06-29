@@ -40,7 +40,7 @@ For a detailed guide, please see the [Syntax and Grammar Documentation](./docs/s
 
 2.  **Build the compiler**:
     ```sh
-    mise run build
+    mise run build-release
     ```
     The executable will be available at `target/release/hello-mlir`.
 
