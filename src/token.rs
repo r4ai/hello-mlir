@@ -28,6 +28,9 @@ pub enum Token<'a> {
     #[regex(r"[0-9]+")]
     Integer(&'a str),
 
+    #[regex(r"[0-9]+\.[0-9]+")]
+    Float(&'a str),
+
     #[token("+")]
     Add,
 
@@ -115,6 +118,7 @@ impl std::fmt::Display for Token<'_> {
             Self::Else => write!(f, "else"),
             Self::Identifier(value) => write!(f, "{value}"),
             Self::Integer(value) => write!(f, "{value}"),
+            Self::Float(value) => write!(f, "{value}"),
             Self::Add => write!(f, "+"),
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),

@@ -22,6 +22,15 @@ pub enum Expr<'a, Ty = Option<Type<'a>>> {
         /// The type of the integer (e.g., i32, i64)
         r#type: Ty,
     },
+    /// A floating-point literal
+    FloatLit {
+        /// The floating-point value
+        value: &'a str,
+        /// The span of the literal in the source code
+        span: Span,
+        /// The type of the float (e.g., f32, f64)
+        r#type: Ty,
+    },
     /// A boolean literal
     BoolLit {
         /// The boolean value
@@ -300,6 +309,7 @@ impl<'a> Expr<'a> {
     pub fn span(&self) -> &Span {
         match self {
             Expr::IntLit { span, .. } => span,
+            Expr::FloatLit { span, .. } => span,
             Expr::BoolLit { span, .. } => span,
             Expr::BinOp { span, .. } => span,
             Expr::UnaryOp { span, .. } => span,

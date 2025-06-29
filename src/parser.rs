@@ -53,6 +53,11 @@ where
                 span: ast::Span::from(e.span()),
                 r#type: None,
             },
+            Token::Float(value) = e => ast::Expr::FloatLit {
+                value,
+                span: ast::Span::from(e.span()),
+                r#type: None,
+            },
             Token::Identifier(ident) = e if ident == "true" => ast::Expr::BoolLit {
                 value: true,
                 span: ast::Span::from(e.span())
@@ -780,5 +785,45 @@ mod tests {
         assert!(!has_no_errors(&result));
         let errors = result.into_errors();
         assert_yaml_snapshot!(format!("{:?}", errors));
+    }
+
+    #[test]
+    fn test_parse_float_literal() {
+        let input = "fn test() -> f32 { 3.14 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_float_literal_f64() {
+        let input = "fn test() -> f64 { 2.71828 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_float_literal_with_zero() {
+        let input = "fn test() -> f32 { 0.0 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
+    }
+
+    #[test]
+    fn test_parse_float_binary_expression() {
+        let input = "fn test() -> f32 { 3.14 + 2.71 }";
+        let result = parse(input);
+        assert!(has_no_errors(&result));
+
+        let program = result.into_result().unwrap();
+        assert_yaml_snapshot!(program);
     }
 }
