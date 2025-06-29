@@ -86,7 +86,26 @@ where
                     span: ast::Span::from(e.span()),
                 });
 
+        // "if" expr "{" expr "}" "else" "{" expr "}"
+        let if_expr = just(Token::If)
+            .ignore_then(expr.clone())
+            .then_ignore(just(Token::LBrace))
+            .then(expr.clone())
+            .then_ignore(just(Token::RBrace))
+            .then_ignore(just(Token::Else))
+            .then_ignore(just(Token::LBrace))
+            .then(expr.clone())
+            .then_ignore(just(Token::RBrace))
+            .map_with(|((condition, then_branch), else_branch), e| ast::Expr::If {
+                condition: Box::new(condition),
+                then_branch: Box::new(then_branch),
+                else_branch: Box::new(else_branch),
+                span: ast::Span::from(e.span()),
+            });
+
         let primary = choice((
+            // if expression
+            if_expr,
             // function call
             function_call,
             // literal
@@ -273,15 +292,6 @@ where
                 span: ast::Span::from(e.span()),
             });
 
-        // "return" [ expr ] ";"
-        let return_statement = just(Token::Return)
-            .ignore_then(expr.clone().or_not())
-            .then_ignore(just(Token::Semicolon))
-            .map_with(|expr, e| ast::Stmt::Return {
-                expr: expr.map(Box::new),
-                span: ast::Span::from(e.span()),
-            });
-
         // identifier ":" type
         let function_parameter = identifier
             .then_ignore(just(Token::Colon))
@@ -323,50 +333,12 @@ where
                 },
             );
 
-        // "if" expr block [ "else" (if_stmt | block) ]
-        let if_statement = recursive(|if_stmt| {
-            just(Token::If)
-                .ignore_then(expr.clone())
-                .then(block.clone())
-                .then(
-                    just(Token::Else)
-                        .ignore_then(
-                            if_stmt
-                                .clone()
-                                .map_with(|stmt, e| match stmt {
-                                    ast::Stmt::If {
-                                        condition,
-                                        then_branch,
-                                        else_branch,
-                                        ..
-                                    } => vec![ast::Stmt::If {
-                                        condition,
-                                        then_branch,
-                                        else_branch,
-                                        span: ast::Span::from(e.span()),
-                                    }],
-                                    _ => unreachable!(), // This will always be an If statement
-                                })
-                                .or(block.clone()),
-                        )
-                        .or_not(),
-                )
-                .map_with(|((condition, then_branch), else_branch), e| ast::Stmt::If {
-                    condition: Box::new(condition),
-                    then_branch,
-                    else_branch,
-                    span: ast::Span::from(e.span()),
-                })
-        });
-
         let statement = choice((
             let_declaration,
             var_declaration,
             assignment,
-            return_statement,
             function_declaration,
             expr_statement,
-            if_statement,
         ));
 
         statement
@@ -605,8 +577,8 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_if_statement() {
-        let input = "fn test() -> i32 { if 1 { 1 } else { 0 } }";
+    fn test_parse_if_expression() {
+        let input = "fn test() -> i32 { if true { 42 } else { 0 } }";
         let result = parse(input);
         assert!(has_no_errors(&result));
 
@@ -615,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_if_statement_with_else() {
+    fn test_parse_if_expression_with_else() {
         let input = "fn test() -> i32 { if 1 { 1 } else { 2 } }";
         let result = parse(input);
         assert!(has_no_errors(&result));
@@ -625,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_if_statement_with_nested_else() {
+    fn test_parse_if_expression_with_nested_else() {
         let input = indoc! {"
             fn test() -> i32 {
                 if 1 {
@@ -647,17 +619,21 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_if_statement_with_else_if_chain() {
+    fn test_parse_if_expression_with_else_if_chain() {
         let input = indoc! {"
             fn test() -> i32 {
-                if 1 {
+                if true {
                     1
-                } else if 2 {
-                    2
-                } else if 3 {
-                    3
                 } else {
-                    4
+                    if true {
+                        2
+                    } else {
+                        if true {
+                            3
+                        } else {
+                            4
+                        }
+                    }
                 }
             }
         "};
@@ -796,7 +772,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_top_level_if_statement_should_fail() {
+    fn test_parse_top_level_if_expression_should_fail() {
         let input = "if true { 42 } else { 0 }";
         let result = parse(input);
 

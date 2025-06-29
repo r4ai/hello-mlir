@@ -475,7 +475,7 @@ impl<'a> TypeChecker<'a> {
                 Ok((
                     return_type,
                     ast::Expr::FnCall {
-                        name: *name,
+                        name,
                         args: typed_args.into_iter().map(|(_, arg)| arg).collect(),
                         span: span.clone(),
                     },
@@ -486,7 +486,36 @@ impl<'a> TypeChecker<'a> {
                 Ok((
                     var.r#type.clone(),
                     ast::Expr::VarRef {
-                        name: *name,
+                        name,
+                        span: span.clone(),
+                    },
+                ))
+            }
+            ast::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+                span,
+            } => {
+                let (condition_type, typed_condition) = self.typecheck_expr(condition)?;
+                assert_equal(condition_type, ast::Type::Bool, self.file_id, span.clone())?;
+
+                let (then_type, typed_then) = self.typecheck_expr(then_branch)?;
+                let (else_type, typed_else) = self.typecheck_expr(else_branch)?;
+
+                assert_equal(
+                    then_type.clone(),
+                    else_type.clone(),
+                    self.file_id,
+                    span.clone(),
+                )?;
+
+                Ok((
+                    then_type,
+                    ast::Expr::If {
+                        condition: Box::new(typed_condition),
+                        then_branch: Box::new(typed_then),
+                        else_branch: Box::new(typed_else),
                         span: span.clone(),
                     },
                 ))
@@ -580,7 +609,7 @@ impl<'a> TypeChecker<'a> {
                     Ok((
                         Some(return_type.clone()),
                         ast::Stmt::FnDecl {
-                            name: *name,
+                            name,
                             params,
                             r#type: return_type.clone(),
                             body: typed_body.into_iter().map(|(_, stmt)| stmt).collect(),
@@ -617,7 +646,7 @@ impl<'a> TypeChecker<'a> {
                 Ok((
                     None,
                     ast::Stmt::LetDecl {
-                        name: *name,
+                        name,
                         r#type: var_type,
                         value: typed_value,
                         span: span.clone(),
@@ -661,7 +690,7 @@ impl<'a> TypeChecker<'a> {
                 Ok((
                     None,
                     ast::Stmt::VarDecl {
-                        name: *name,
+                        name,
                         r#type: var_type,
                         value: typed_value,
                         span: span.clone(),
@@ -678,125 +707,11 @@ impl<'a> TypeChecker<'a> {
                 Ok((
                     None,
                     ast::Stmt::Assign {
-                        name: *name,
+                        name,
                         value: Box::new(typed_value),
                         span: span.clone(),
                     },
                 ))
-            }
-            ast::Stmt::If {
-                condition,
-                then_branch,
-                else_branch,
-                span,
-            } => {
-                let (actual_condition_type, typed_condition) = self.typecheck_expr(condition)?;
-                assert_equal(
-                    actual_condition_type,
-                    ast::Type::Bool,
-                    self.file_id,
-                    span.clone(),
-                )?;
-
-                // then branch
-                self.env.push_scope();
-                let (actual_then_branch_type, typed_then_branch) = {
-                    let mut typed_then_branch = Vec::new();
-                    let mut actual_then_branch_types = Vec::new();
-                    for stmt in then_branch {
-                        let (stmt_type, typed_stmt) = self.typecheck_stmt(stmt)?;
-                        if let Some(stmt_type) = stmt_type {
-                            actual_then_branch_types.push(stmt_type);
-                        }
-                        typed_then_branch.push(typed_stmt);
-                    }
-                    for actual_then_type in &actual_then_branch_types {
-                        assert_equal(
-                            actual_then_branch_types[0].clone(),
-                            actual_then_type.clone(),
-                            self.file_id,
-                            span.clone(),
-                        )?;
-                    }
-                    let actual_then_type = actual_then_branch_types.get(0).cloned();
-                    (actual_then_type, typed_then_branch)
-                };
-                self.env.pop_scope();
-
-                // else branch
-                let (actual_else_branch_type, typed_else_branch) =
-                    if let Some(else_branch) = else_branch {
-                        // Push a new scope for the else branch
-                        self.env.push_scope();
-                        let mut typed_else_branch = Vec::new();
-                        let mut actual_else_branch_types = Vec::new();
-                        for stmt in else_branch {
-                            let (stmt_type, typed_stmt) = self.typecheck_stmt(stmt)?;
-                            if let Some(stmt_type) = stmt_type {
-                                actual_else_branch_types.push(stmt_type);
-                            }
-                            typed_else_branch.push(typed_stmt);
-                        }
-                        for actual_else_type in &actual_else_branch_types {
-                            assert_equal(
-                                actual_else_branch_types[0].clone(),
-                                actual_else_type.clone(),
-                                self.file_id,
-                                span.clone(),
-                            )?;
-                        }
-                        let actual_else_branch_type = actual_else_branch_types.get(0).cloned();
-                        self.env.pop_scope();
-                        (actual_else_branch_type, Some(typed_else_branch))
-                    } else {
-                        (None, None)
-                    };
-
-                let if_type = {
-                    if let Some(actual_then_type) = actual_then_branch_type {
-                        if let Some(actual_else_type) = actual_else_branch_type {
-                            assert_equal(
-                                actual_then_type.clone(),
-                                actual_else_type.clone(),
-                                self.file_id,
-                                span.clone(),
-                            )?;
-                        }
-                        Some(actual_then_type)
-                    } else {
-                        actual_else_branch_type
-                    }
-                };
-
-                Ok((
-                    if_type,
-                    ast::Stmt::If {
-                        condition: Box::new(typed_condition),
-                        then_branch: typed_then_branch,
-                        else_branch: typed_else_branch,
-                        span: span.clone(),
-                    },
-                ))
-            }
-            ast::Stmt::Return { expr, span } => {
-                if let Some(expr) = expr {
-                    let (actual_expr_type, typed_expr) = self.typecheck_expr(expr)?;
-                    Ok((
-                        Some(actual_expr_type),
-                        ast::Stmt::Return {
-                            expr: Some(Box::new(typed_expr)),
-                            span: span.clone(),
-                        },
-                    ))
-                } else {
-                    Ok((
-                        Some(ast::Type::Void),
-                        ast::Stmt::Return {
-                            expr: None,
-                            span: span.clone(),
-                        },
-                    ))
-                }
             }
             ast::Stmt::ExprStmt { expr, span } => {
                 let (_, typed_expr) = self.typecheck_expr(expr)?;
@@ -907,7 +822,7 @@ mod tests {
     fn test_function_found() {
         let source = indoc! {"
             fn zero() -> i32 {
-                return 0;
+                0
             }
 
             fn main() -> i32 {
@@ -922,7 +837,7 @@ mod tests {
     fn test_function_not_found() {
         let source = indoc! {"
             fn zero() -> i32 {
-                return 0;
+                0
             }
 
             fn main() -> i32 {
@@ -971,14 +886,8 @@ mod tests {
             fn main() -> i32 {
                 let x: i32 = 42;
                 let y: i32 = 43;
-
-                if true {
-                    let x: i32 = 44;
-                } else {
-                    let y: i32 = 45;
-                }
-                
-                x + y
+                let z: i32 = if true { 44 } else { 45 };
+                x + y + z
             }
         "};
         let result = typecheck(source);
@@ -1003,11 +912,11 @@ mod tests {
     fn test_duplicate_function_declaration() {
         let source = indoc! {"
             fn add() -> i32 {
-                return 0;
+                0
             }
 
             fn add() -> i32 {
-                return 1;
+                1
             }
         "};
         let result = typecheck(source);
@@ -1118,15 +1027,33 @@ mod tests {
     fn test_if_return() {
         let source = indoc! {"
             fn main() -> i32 {
-                if true {
-                    return 1;
-                } else {
-                    return 0;
-                }
+                if true { 1 } else { 0 }
             }
         "};
         let result = typecheck(source);
         assert!(result.is_ok(), "Expected ok but got error: {:?}", result);
+    }
+
+    #[test]
+    fn test_if_type_mismatch() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                if true { 1 } else { true }
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
+    }
+
+    #[test]
+    fn test_if_condition_not_bool() {
+        let source = indoc! {"
+            fn main() -> i32 {
+                if 42 { 1 } else { 0 }
+            }
+        "};
+        let result = typecheck(source);
+        assert!(result.is_err(), "Expected error but got ok");
     }
 
     #[test]
@@ -1135,17 +1062,13 @@ mod tests {
             fn main() -> i32 {
                 if true {
                     if false {
-                        if true {
-                            return 1;
-                        } else {
-                            return 1;
-                        }
+                        if true { 1 } else { 1 }
+                    } else {
+                        2
                     }
-                    return 2;
                 } else {
-                    return 3;
+                    3
                 }
-                4
             }
         "};
         let result = typecheck(source);

@@ -65,6 +65,17 @@ pub enum Expr<'a, Ty = Option<Type<'a>>> {
         /// The span of the variable reference in the source code
         span: Span,
     },
+    /// An if expression
+    If {
+        /// The condition
+        condition: Box<Expr<'a, Ty>>,
+        /// The then branch (expression)
+        then_branch: Box<Expr<'a, Ty>>,
+        /// The else branch (expression)
+        else_branch: Box<Expr<'a, Ty>>,
+        /// The span of the if expression in the source code
+        span: Span,
+    },
 }
 
 /// Binary operator
@@ -187,26 +198,6 @@ pub enum Stmt<'a, Ty = Option<Type<'a>>> {
         span: Span,
     },
 
-    /// An if statement
-    If {
-        /// The condition
-        condition: Box<Expr<'a, Ty>>,
-        /// The then branch
-        then_branch: Vec<Stmt<'a, Ty>>,
-        /// The else branch
-        else_branch: Option<Vec<Stmt<'a, Ty>>>,
-        /// The span of the if statement in the source code
-        span: Span,
-    },
-
-    /// A return statement
-    Return {
-        /// The expression to return
-        expr: Option<Box<Expr<'a, Ty>>>,
-        /// The span of the return statement in the source code
-        span: Span,
-    },
-
     /// An expression statement
     #[allow(clippy::enum_variant_names)]
     ExprStmt {
@@ -314,6 +305,7 @@ impl<'a> Expr<'a> {
             Expr::UnaryOp { span, .. } => span,
             Expr::FnCall { span, .. } => span,
             Expr::VarRef { span, .. } => span,
+            Expr::If { span, .. } => span,
         }
     }
 }
@@ -326,8 +318,6 @@ impl<'a> Stmt<'a, Type<'a>> {
             Stmt::LetDecl { span, .. } => span,
             Stmt::VarDecl { span, .. } => span,
             Stmt::Assign { span, .. } => span,
-            Stmt::If { span, .. } => span,
-            Stmt::Return { span, .. } => span,
             Stmt::ExprStmt { span, .. } => span,
             Stmt::Expr { span, .. } => span,
         }

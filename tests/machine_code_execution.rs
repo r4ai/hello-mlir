@@ -1,4 +1,5 @@
 use hello_mlir::{codegen, parser, typechecker};
+use indoc::indoc;
 use std::process::Command;
 use tempfile::TempDir;
 
@@ -77,89 +78,11 @@ fn check_mlir_tools_available() -> bool {
         && Command::new("clang").arg("--version").output().is_ok()
 }
 
-/// Compile MLIR to executable and run it
-fn compile_and_run_mlir(mlir_code: &str) -> Result<i32, Box<dyn std::error::Error>> {
-    if !check_mlir_tools_available() {
-        return Err("MLIR tools not available. Please install LLVM/MLIR toolchain.".into());
-    }
-
-    let temp_dir = TempDir::new()?;
-    let mlir_path = temp_dir.path().join("test.mlir");
-    let llvm_ir_path = temp_dir.path().join("test.ll");
-    let obj_path = temp_dir.path().join("test.o");
-    let exe_path = temp_dir.path().join("test");
-
-    // Write MLIR file
-    std::fs::write(&mlir_path, mlir_code)?;
-
-    // Convert MLIR to LLVM IR
-    let output = Command::new("mlir-translate")
-        .arg("--mlir-to-llvmir")
-        .arg(&mlir_path)
-        .arg("-o")
-        .arg(&llvm_ir_path)
-        .output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to convert MLIR to LLVM IR: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    // Compile LLVM IR to object file
-    let output = Command::new("llc")
-        .arg("-filetype=obj")
-        .arg("-march=x86-64")
-        .arg(&llvm_ir_path)
-        .arg("-o")
-        .arg(&obj_path)
-        .output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to compile to object file: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    // Link to create executable
-    let output = Command::new("clang")
-        .arg(&obj_path)
-        .arg("-o")
-        .arg(&exe_path)
-        .output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Failed to link executable: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    // Run the executable
-    let output = Command::new(&exe_path).output()?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Program execution failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
-    }
-
-    // Get exit code
-    Ok(output.status.code().unwrap_or(-1))
-}
-
 #[test]
 fn test_simple_return_value() {
     let source = r#"
         fn main() -> i32 {
-            return 42;
+            42
         }
     "#;
 
@@ -171,20 +94,16 @@ fn test_simple_return_value() {
     assert!(mlir_code.contains("return"));
 
     // Test actual execution now that LLVM dialect conversion is implemented
-    if check_mlir_tools_available() {
-        let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
-        assert_eq!(exit_code, 42, "Program should return 42");
-        println!("✅ Execution test passed: exit code = {}", exit_code);
-    } else {
-        println!("Skipping execution test: MLIR tools not available");
-    }
+    let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
+    assert_eq!(exit_code, 42, "Program should return 42");
+    println!("✅ Execution test passed: exit code = {}", exit_code);
 }
 
 #[test]
 fn test_arithmetic_operations() {
     let source = r#"
         fn main() -> i32 {
-            return 10 + 5 * 2;
+            10 + 5 * 2
         }
     "#;
 
@@ -198,24 +117,20 @@ fn test_arithmetic_operations() {
     assert!(mlir_code.contains("arith.addi"));
 
     // Test actual execution
-    if check_mlir_tools_available() {
-        let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
-        assert_eq!(exit_code, 20, "Program should return 20 (10 + 5 * 2)");
-        println!("✅ Arithmetic test passed: exit code = {}", exit_code);
-    } else {
-        println!("Skipping execution test: MLIR tools not available");
-    }
+    let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
+    assert_eq!(exit_code, 20, "Program should return 20 (10 + 5 * 2)");
+    println!("✅ Arithmetic test passed: exit code = {}", exit_code);
 }
 
 #[test]
 fn test_function_with_parameters() {
     let source = r#"
         fn add(a: i32, b: i32) -> i32 {
-            return a + b;
+            a + b
         }
         
         fn main() -> i32 {
-            return add(15, 27);
+            add(15, 27)
         }
     "#;
 
@@ -224,18 +139,11 @@ fn test_function_with_parameters() {
     // Test that MLIR contains function definitions and calls
     assert!(mlir_code.contains("func.func @add"));
     assert!(mlir_code.contains("func.func @main"));
-    println!("Generated MLIR for function calls:\n{}", mlir_code);
-    // Function calls are not yet implemented, so we skip this assertion for now
-    // assert!(mlir_code.contains("func.call @add"));
+    assert!(mlir_code.contains("call @add"));
 
-    // Test actual execution - function calls should work
-    if check_mlir_tools_available() {
-        let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
-        assert_eq!(exit_code, 42, "Program should return 42 (15 + 27)");
-        println!("✅ Function call test passed: exit code = {}", exit_code);
-    } else {
-        println!("Skipping execution test: MLIR tools not available");
-    }
+    let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
+    assert_eq!(exit_code, 42, "Program should return 42 (15 + 27)");
+    println!("✅ Function call test passed: exit code = {}", exit_code);
 }
 
 #[test]
@@ -244,7 +152,7 @@ fn test_variable_declarations() {
         fn main() -> i32 {
             let x: i32 = 10;
             let y: i32 = 20;
-            return x + y;
+            x + y
         }
     "#;
 
@@ -255,13 +163,9 @@ fn test_variable_declarations() {
     assert!(mlir_code.contains("arith.constant"));
 
     // Test actual execution
-    if check_mlir_tools_available() {
-        let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
-        assert_eq!(exit_code, 30, "Program should return 30 (10 + 20)");
-        println!("✅ Variable test passed: exit code = {}", exit_code);
-    } else {
-        println!("Skipping execution test: MLIR tools not available");
-    }
+    let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
+    assert_eq!(exit_code, 30, "Program should return 30 (10 + 20)");
+    println!("✅ Variable test passed: exit code = {}", exit_code);
 }
 
 #[test]
@@ -270,10 +174,7 @@ fn test_boolean_operations() {
         fn main() -> i32 {
             let x: bool = true;
             let y: bool = false;
-            if x {
-                return 1;
-            }
-            return 0;
+            if x { 1 } else { 0 }
         }
     "#;
 
@@ -282,10 +183,33 @@ fn test_boolean_operations() {
     // Test that MLIR contains boolean constants
     assert!(mlir_code.contains("func.func @main"));
     assert!(mlir_code.contains("arith.constant"));
+    assert!(mlir_code.contains("scf.if"));
+    assert!(mlir_code.contains("scf.yield"));
+    assert!(mlir_code.contains("return"));
+}
 
-    // Note: IF statements are not fully implemented yet, so this test
-    // primarily validates that boolean constants are generated correctly
-    println!("Generated MLIR for boolean operations:\n{}", mlir_code);
+#[test]
+fn test_nested_if_expression() {
+    let source = indoc! {"
+        fn test(x: i32) -> i32 {
+            if x > 0 {
+                if x < 10 {
+                    x + 1
+                } else {
+                    x - 1
+                }
+            } else {
+                0
+            }
+        }
+
+        fn main() -> i32 {
+            test(3)
+        }
+    "};
+
+    let exit_code = compile_and_run_source(source).expect("Failed to compile and run");
+    assert_eq!(exit_code, 4, "Program should return 4 (= 3 + 1)");
 }
 
 #[test]
@@ -293,11 +217,11 @@ fn test_mlir_verification() {
     // Test that generated MLIR passes verification
     let source = r#"
         fn fibonacci(n: i32) -> i32 {
-            return n + 1;
+            n + 1
         }
         
         fn main() -> i32 {
-            return fibonacci(5);
+            fibonacci(5)
         }
     "#;
 
@@ -309,21 +233,16 @@ fn test_mlir_verification() {
     std::fs::write(&mlir_path, &mlir_code).expect("Failed to write MLIR file");
 
     // Try to parse with mlir-opt if available
-    if Command::new("mlir-opt").arg("--version").output().is_ok() {
-        let output = Command::new("mlir-opt")
-            .arg("--verify-diagnostics")
-            .arg(&mlir_path)
-            .output()
-            .expect("Failed to run mlir-opt");
-
-        if !output.status.success() {
-            panic!(
-                "MLIR verification failed:\nMLIR Code:\n{}\nError:\n{}",
-                mlir_code,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-    } else {
-        println!("Skipping MLIR verification: mlir-opt not available");
+    let output = Command::new("mlir-opt")
+        .arg("--verify-diagnostics")
+        .arg(&mlir_path)
+        .output()
+        .expect("Failed to run mlir-opt");
+    if !output.status.success() {
+        panic!(
+            "MLIR verification failed:\nMLIR Code:\n{}\nError:\n{}",
+            mlir_code,
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }
