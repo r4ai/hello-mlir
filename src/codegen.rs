@@ -227,11 +227,8 @@ impl<'c> CodeGenerator<'c> {
                 let int_type = self.ast_type_to_mlir_type(r#type)?;
                 let const_op = block.append_operation(arith::constant(
                     self.context,
-                    melior::ir::attribute::IntegerAttribute::new(
-                        int_type,
-                        value.parse::<i64>()?,
-                    )
-                    .into(),
+                    melior::ir::attribute::IntegerAttribute::new(int_type, value.parse::<i64>()?)
+                        .into(),
                     self.location,
                 ));
                 Ok(const_op.result(0)?.into())
