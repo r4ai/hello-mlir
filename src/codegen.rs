@@ -229,7 +229,7 @@ impl<'c> CodeGenerator<'c> {
                     self.context,
                     melior::ir::attribute::IntegerAttribute::new(
                         int_type,
-                        value.parse::<i64>().unwrap_or(0),
+                        value.parse::<i64>()?,
                     )
                     .into(),
                     self.location,
