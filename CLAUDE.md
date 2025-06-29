@@ -28,29 +28,29 @@ This is a compiler project for a simple integer-focused language that targets ML
 
 ### Key Features
 
-- **Comprehensive AST**: Supports expressions (literals, binary/unary ops, function calls, variables), statements (function declarations, variable declarations, assignments, if statements, returns), and full type system
-- **Error Reporting**: Uses `ariadne` for beautiful error messages with source spans
-- **Snapshot Testing**: Extensive test coverage using `insta` for snapshot testing
+- **Comprehensive AST**: Supports expressions (literals, binary/unary ops, function calls, variables, if expressions), statements (function declarations, variable declarations, assignments), and a full type system.
+- **Error Reporting**: Uses `ariadne` for beautiful error messages with source spans.
+- **Snapshot Testing**: Extensive test coverage using `insta` for snapshot testing.
 - **Two Compilation Modes**:
-  - `--mode ast`: Outputs AST as YAML
-  - `--mode machine-code`: Full compilation (type checking + MLIR generation)
+  - `--mode ast`: Outputs AST as YAML.
+  - `--mode machine-code`: Full compilation (type checking + MLIR generation).
 
 ### Dependencies
 
-- **Parser**: `chumsky` for parser combinators, `logos` for lexing
-- **MLIR**: `melior` for MLIR code generation
-- **Error Handling**: `ariadne` for diagnostics, `anyhow` and `thiserror` for error handling
-- **CLI**: `clap` for command-line interface
-- **Serialization**: `serde` and `serde_yaml` for AST output
-- **Testing**: `insta` for snapshot tests, `pretty_assertions` for better test output
+- **Parser**: `chumsky` for parser combinators, `logos` for lexing.
+- **MLIR**: `melior` for MLIR code generation.
+- **Error Handling**: `ariadne` for diagnostics, `anyhow` and `thiserror` for error handling.
+- **CLI**: `clap` for command-line interface.
+- **Serialization**: `serde` and `serde_yaml` for AST output.
+- **Testing**: `insta` for snapshot tests, `pretty_assertions` for better test output.
 
 ### Testing Strategy
 
 The project uses snapshot testing extensively with `insta`. Test snapshots are stored in `src/snapshots/` and cover:
 
-- Parser functionality for all language constructs
-- Type checker behavior for various scenarios
-- Error cases and recovery
+- Parser functionality for all language constructs.
+- Type checker behavior for various scenarios.
+- Error cases and recovery.
 
 When making changes to parser or type checker output, always run `mise run test-review` to review and approve snapshot changes.
 
@@ -58,16 +58,16 @@ When making changes to parser or type checker output, always run `mise run test-
 
 The language supports:
 
-- Integer and boolean literals
-- Binary operations (arithmetic, comparison, logical)
-- Unary operations (negation, logical not)
-- Variable declarations (immutable `let` and mutable `var`)
-- Function declarations with parameters and return types
-- Function calls
-- If/else statements with chaining
-- Assignment statements
-- Return statements
-- Type annotations (i32, i64, f32, f64, bool, void, string, function types)
+- Integer and boolean literals.
+- Binary operations (arithmetic, comparison, logical).
+- Unary operations (negation, logical not).
+- Variable declarations (immutable `let` and mutable `var`).
+- Function declarations with parameters and return types.
+- Function calls.
+- If/else expressions.
+- Assignment statements.
+- Type annotations (i32, i64, f32, f64, bool, void, string, function types).
+- Implicit returns (the last expression in a function body is the return value).
 
 ### Development Notes
 
